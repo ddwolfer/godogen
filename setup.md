@@ -60,15 +60,33 @@ Needs Node.js 22.12+. First run downloads a ~560MB embedding model, once.
 folder beside this checkout. Publishing still works without it — it prints a
 warning and produces a repo with no memory.
 
-Import the seed corpus into the shared craft database:
+Import the seed corpus into the shared craft database. Three steps, none of
+them optional:
 
 ```
-node D:\AI\kg\scripts\import-skills.js --db <godogen>\craft.db <godogen>\knowledge
+node D:\AI\kg\scripts\import-skills.js D:\AI\godogen\knowledge --db D:\AI\godogen\craft.db
+node D:\AI\kg\scripts\backfill-embeddings.js --db D:\AI\godogen\craft.db
+python scripts\seed_priority.py --db craft.db
 ```
 
-Check afterwards that the imported nodes carry `trust = 'principle'`. The
-post-compact hook only re-injects those, so getting it wrong means the
-injection is silently empty.
+**The backfill is not optional.** `import-skills.js` gates embedding on
+`isReady()`, which only becomes true after `embed()` has been called -- so a
+fresh process always writes zero vectors and still reports success. The
+backfill calls `embed()` directly. First run downloads a ~560MB model.
+
+**The priority seeding is not optional either.** The post-compact hook injects
+`ORDER BY access_count DESC LIMIT 10`; with a fresh import every count is 0
+and the selection is arbitrary. On a 20-entry corpus that dropped every
+principle, leaving traps and no method. Re-run it after every import.
+
+Verify -- do not trust the import's own reporting:
+
+```
+cd D:\AI\kg
+node -e "const D=require('better-sqlite3'),V=require('sqlite-vec');const db=new D('D:/AI/godogen/craft.db',{readonly:true});V.load(db);console.log('nodes',db.prepare('SELECT count(*) c FROM nodes').get().c,'vec',db.prepare('SELECT count(*) c FROM vec_nodes').get().c)"
+```
+
+Both numbers must match. `vec 0` means the backfill did not run.
 
 ## Optional — local asset generation
 
