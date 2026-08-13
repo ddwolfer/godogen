@@ -981,9 +981,11 @@ kg 指向 `D:/AI/guildrun/kg`(已安裝的既有實例,唯讀)進行驗證。
 **實跑發現的兩個新問題**(都在 kg 側,不在本 repo)
 
 - **`post-compact.js` 只取 `LIMIT 10`,依 `access_count DESC` 排序。** 語料有 17 條,而全新匯入時 `access_count` 全為 0,所以壓縮後注入哪 10 條是不定的。語料再長就會有條目永遠進不了注入。
-- **`sqlite-vec` 擴充載入失敗(`no such module: vec0`),向量檢索是空的**,目前只有 FTS5 全文檢索有效。匯入時 `0 with embeddings` 就是這個徵兆。語意相近但用詞不同的查詢會召回不到。
+- ~~`sqlite-vec` 擴充載入失敗,向量檢索是死的。~~ **這條是錯的,已更正。** 我從 Python 的 `sqlite3` 測,看到 `no such module: vec0` 就下結論 —— 但那個 extension 掛在 Node 的 `better-sqlite3` 上,不是系統層 SQLite。**測錯 runtime。** Node 底下實測:`vec0 LOADED`,guildrun 的 `gamedev.db` 15 個節點全有 embedding。向量檢索是活的。
 
-兩者都列入 Task 18 的範圍。
+  但同一次驗證發現一個**真的**問題:`craft.db` 是 `nodes=17 / vec_nodes=0`。匯入時 embedding 模型未就緒(`0 with embeddings`),所以種子語料目前只有 FTS 檢索,沒有語意檢索。模型就緒後重匯即可。
+
+前兩條列入 Task 18 的範圍。
 
 ## Self-Review
 
