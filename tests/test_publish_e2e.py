@@ -137,7 +137,12 @@ def test_kg_wiring_references_both_databases(tmp_path: Path):
     assert "craft.db" in mcp and "game.db" in mcp
 
 
-def test_kg_absent_still_publishes(tmp_path: Path, capsys):
+def test_kg_absent_still_publishes(tmp_path: Path, capsys, monkeypatch):
+    """kg_home=None means 'discover', so the discovery itself has to be
+    neutralised -- otherwise this passes only on a machine without kg."""
+    monkeypatch.setattr(publish.kgwire, "DEFAULT_KG_PATHS", ())
+    monkeypatch.delenv("GODOGEN_KG_HOME", raising=False)
+
     out = tmp_path / "game"
     publish.publish("godot", out, wire_knowledge=True, kg_home=None)
 

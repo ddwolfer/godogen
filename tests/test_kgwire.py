@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.publish_lib import kgwire
 
 
@@ -13,19 +15,36 @@ def _fake_kg(root: Path) -> Path:
     return kg
 
 
+@pytest.fixture
+def no_installed_kg(monkeypatch):
+    """Empty the fallback search path.
+
+    Without this, 'no kg found' assertions pass only on machines that happen
+    not to have one installed -- the test would go green for a reason that has
+    nothing to do with the code, and flip the day someone installs it.
+    """
+    monkeypatch.setattr(kgwire, "DEFAULT_KG_PATHS", ())
+
+
 def test_env_override_wins(tmp_path: Path):
     kg = _fake_kg(tmp_path)
     assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(kg)}) == kg
 
 
-def test_missing_kg_returns_none(tmp_path: Path):
+def test_missing_kg_returns_none(tmp_path: Path, no_installed_kg):
     assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(tmp_path / "nope")}) is None
 
 
-def test_directory_without_main_js_is_not_kg(tmp_path: Path):
+def test_directory_without_main_js_is_not_kg(tmp_path: Path, no_installed_kg):
     bare = tmp_path / "kg"
     bare.mkdir()
     assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(bare)}) is None
+
+
+def test_fallback_paths_are_searched_when_env_is_unset(tmp_path: Path, monkeypatch):
+    kg = _fake_kg(tmp_path)
+    monkeypatch.setattr(kgwire, "DEFAULT_KG_PATHS", (kg,))
+    assert kgwire.find_kg_home({}) == kg
 
 
 def test_mcp_config_declares_two_servers(tmp_path: Path):

@@ -1,3 +1,7 @@
+---
+source: pitguild-2026-08
+verified: partial
+---
 # GDScript 的型別推導與靜默失敗
 
 > 「型別推導是編輯期摩擦,不是正確性風險——一整天約 3 分鐘,從未造成執行期 bug。」

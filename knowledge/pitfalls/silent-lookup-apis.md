@@ -1,3 +1,7 @@
+---
+source: pitguild-2026-08
+verified: true
+---
 # 查無此名就靜默 return 的 API 是假機制的溫床
 
 > 「從程式碼看,一個查無此名就靜默 return 的音效呼叫,和一個真的會發出聲音的系統長得一模一樣。」

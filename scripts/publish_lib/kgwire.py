@@ -28,7 +28,13 @@ INJECTING_HOOKS = {
 
 HOOK_TIMEOUT_S = 10
 
-DEFAULT_KG_PATHS = (Path("D:/AI/kg"),)
+# Every location searched when GODOGEN_KG_HOME is unset. Kept as one constant
+# so a test can empty it -- otherwise "no kg installed" tests pass only on
+# machines that happen not to have one, which is not a test.
+DEFAULT_KG_PATHS = (
+    Path("D:/AI/kg"),
+    Path(__file__).resolve().parents[2].parent / "kg",  # sibling of the checkout
+)
 
 KG_MISSING_WARNING = (
     "warning: no kg installation found -- publishing without knowledge wiring.\n"
@@ -55,7 +61,6 @@ def find_kg_home(env: dict[str, str] | None = None) -> Path | None:
     if override:
         candidates.append(Path(override))
     candidates.extend(DEFAULT_KG_PATHS)
-    candidates.append(Path(__file__).resolve().parents[2].parent / "kg")
 
     for candidate in candidates:
         try:

@@ -1,3 +1,7 @@
+---
+source: pitguild-2026-08
+verified: true
+---
 # Blender 程式化建模的座標與鏡頭陷阱
 
 > 「Blender 正面朝 -Y,轉出 glTF 之後變成 +Z——搞錯就整批模型背對鏡頭,而且不會報錯。」

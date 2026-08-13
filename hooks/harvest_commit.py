@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Tier 1 of the write path: harvest lessons out of commit messages.
+"""Backup collector for the write path: lessons left in commit messages.
 
-Curating knowledge by hand is a chore, and chores stop getting done -- the
-knowledge base this fork is modelled on went eleven days without a single
-write while its author kept recording pitfalls in commit bodies nobody read
-back. So this asks for nothing. It watches `git commit`, pulls out the
-sections that were already being written, and files them as episodes.
+This is a net, not the main entrance. Measured against 80 real commits from
+the project this corpus came from, it catches about 4% -- and the corpus's
+most valuable entries were never written at commit time at all. They appeared
+when their author had to explain a finished piece of work to a person, which
+is the only moment that forces the question "so what next time?". A commit
+message is written for the diff.
+
+So the primary harvest happens at delivery, through the kg-harvest skill.
+This runs anyway because it is free: it asks nothing of anyone, and whatever
+it catches is material that skill can work from later.
 
 Wired as a PostToolUse hook. Every failure is silent: a broken harvest must
 never block a commit.
@@ -28,12 +33,23 @@ from pathlib import Path
 # Section headings that mark harvestable content. A heading only counts at the
 # start of a paragraph, followed by a colon somewhere on that line -- prose
 # that merely mentions one is not a section.
+#
+# Deliberately loose. These are prefixes drawn from headings that actually
+# appeared in real commit bodies ("平衡（探針，零指令）：" missed an exact
+# "平衡回歸" match by two characters). A false positive costs one cheap
+# episode row; a miss loses the lesson entirely.
 HARVEST_HEADINGS: tuple[str, ...] = (
     "踩到的坑",
-    "平衡回歸",
-    "難度回歸",
+    "平衡",
+    "難度",
+    "呈現",
+    "根因",
+    "實測",
+    "使用者實測",
+    "教訓",
     "Pitfall",
     "Regression",
+    "Lesson",
 )
 
 _COLONS = ("：", ":")

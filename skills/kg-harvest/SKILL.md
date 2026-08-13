@@ -5,8 +5,8 @@ short_description: 把這個 session 學到的、跨專案成立的教訓,提案
 default_prompt: "用 ${KG_HARVEST_COMMAND} 檢查這個 session 有沒有值得帶到下一個專案的教訓。"
 allow_implicit_invocation: false
 description: |
-  回看本 session 的 commit 與知識庫 episode,挑出跨專案成立的教訓,提案寫進 godogen 的 knowledge/。
-  在一段工作告一段落、或使用者說「收工」「整理一下」時使用。
+  在向使用者交付一段工作時執行:回顧這次做了什麼、差點搞砸什麼,挑出跨專案成立的教訓,提案寫進 godogen 的 knowledge/。
+  交付流程的一步,不是有空才做的整理。
 ---
 
 # 知識收割
@@ -15,11 +15,28 @@ description: |
 
 你的工作是提案,不是決定。**寫入 godogen 前一定要拿到使用者核可。**
 
+## 什麼時候跑
+
+**在你要向使用者報告一段工作完成的時候,報告的同時跑這個。**
+
+時機是刻意選的。這份語料裡最有價值的幾條 —— 假綠測試、靜默 API、統計要拆開 —— **沒有一條是在 commit 的時候寫下的**。它們全部產生在「向人解釋完成度」的那一刻,因為只有那一刻會逼你回答**「所以下次呢?」**。
+
+commit message 是寫給 diff 的:它記錄你改了什麼。交付報告是寫給人的:它逼你講出你**差點**搞砸什麼。後者才是教訓的產地。
+
 ## 資料在哪
 
-- **本 session 的 commit** —— `git log --format='%h%n%s%n%b' <session 開始以來的範圍>`
-- **已收割的 episode** —— `.kg/game.db` 的 `episodes` 表,`context` 欄是段落名(`踩到的坑`、`平衡回歸`…)。這些是 commit hook 自動抓的原料。
-- **godogen 現有語料** —— `${GODOGEN_ROOT}/knowledge/`,先讀過再提案,避免重複。
+**主要來源是你自己這次的工作記憶** —— 特別是這幾個問題:
+
+- 這次有沒有什麼東西**看起來對但其實錯了**,而你是靠某個特定手法才發現的?
+- 有沒有哪個 bug 讓你**先找錯了地方**?錯在哪個假設上?
+- 有沒有什麼是**做完之後才發現早該先決定**的?
+- 使用者的哪一句回饋,推翻了你原本認為沒問題的東西?
+
+輔助來源:
+
+- **`.kg/game.db` 的 `episodes` 表** —— commit hook 自動抓的原料。`context` 欄是段落名。**這是網不是主要入口** —— 實測命中率約 7%,而且它抓到的是「你寫下來的」,不是「你學到的」。當提示用,不要當清單用。
+- **本 session 的 commit** —— `git log --format='%h%n%s%n%b' <範圍>`
+- **godogen 現有語料** —— `${GODOGEN_ROOT}/knowledge/`,先讀過再提案,避免重複或矛盾。
 
 ## 升級門檻
 

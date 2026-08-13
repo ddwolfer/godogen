@@ -1,3 +1,7 @@
+---
+source: pitguild-2026-08
+verified: partial
+---
 # 驗收五層梯
 
 > 「系統的眼睛只能證明系統做到了它被告知的事。」

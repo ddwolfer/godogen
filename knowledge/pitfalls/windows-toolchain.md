@@ -1,3 +1,7 @@
+---
+source: pitguild-2026-08
+verified: true
+---
 # Windows 工具鏈陷阱
 
 > 「在 Windows 上,agent 最常見的自傷不是寫錯程式,是寫檔案的過程本身把檔案弄壞。」
