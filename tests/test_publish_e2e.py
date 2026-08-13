@@ -91,3 +91,48 @@ def test_pycache_is_not_published(tmp_path: Path):
     out = tmp_path / "game"
     publish.publish("godot", out)
     assert not list(out.rglob("__pycache__"))
+
+
+def _fake_kg(root: Path) -> Path:
+    kg = root / "kg"
+    (kg / "hooks").mkdir(parents=True)
+    (kg / "main.js").touch()
+    for hook in ("session-start.js", "post-compact.js", "auto-recall.js"):
+        (kg / "hooks" / hook).touch()
+    return kg
+
+
+def test_kg_present_writes_wiring(tmp_path: Path):
+    kg = _fake_kg(tmp_path)
+    out = tmp_path / "game"
+    publish.publish("godot", out, kg_home=kg)
+
+    assert (out / ".mcp.json").is_file()
+    assert (out / ".claude" / "settings.json").is_file()
+    assert (out / ".kg").is_dir()
+
+
+def test_kg_wiring_references_both_databases(tmp_path: Path):
+    kg = _fake_kg(tmp_path)
+    out = tmp_path / "game"
+    publish.publish("godot", out, kg_home=kg)
+
+    mcp = (out / ".mcp.json").read_text(encoding="utf-8")
+    assert "craft.db" in mcp and "game.db" in mcp
+
+
+def test_kg_absent_still_publishes(tmp_path: Path, capsys):
+    out = tmp_path / "game"
+    publish.publish("godot", out, wire_knowledge=True, kg_home=None)
+
+    assert (out / "CLAUDE.md").is_file()
+    assert not (out / ".mcp.json").exists()
+    assert "no kg installation found" in capsys.readouterr().err
+
+
+def test_gitignore_covers_the_knowledge_cache(tmp_path: Path):
+    out = tmp_path / "game"
+    publish.publish("godot", out, wire_knowledge=False)
+    ignored = (out / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert ".kg/" in ignored
+    assert ".mcp.json" in ignored

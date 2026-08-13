@@ -5,5 +5,8 @@
 .playwright
 **/__pycache__
 .pytest_cache/
+craft.db
+craft.db-shm
+craft.db-wal
 godot/skills/godot-api/doc_api/
 godot/skills/godot-api/doc_source/

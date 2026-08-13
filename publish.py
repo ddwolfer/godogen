@@ -7,7 +7,7 @@ Usage:
 
 A published repo carries only docs: the runtime manifest (CLAUDE.md), a
 per-engine guide (<engine>.md), and the skills. The agent scaffolds the game
-itself from the engine guide — no project scaffold is shipped.
+itself from the engine guide -- no project scaffold is shipped.
 
 Pure Python on purpose: it runs identically on Windows and POSIX, and avoids
 the rsync/mktemp dependency of the shell version it replaces.
@@ -16,13 +16,14 @@ the rsync/mktemp dependency of the shell version it replaces.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-from scripts.publish_lib import layout
+from scripts.publish_lib import kgwire, layout
 
 REPO_ROOT = Path(__file__).resolve().parent
 
@@ -46,6 +47,40 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
+def _write_json(path: Path, data: dict) -> None:
+    _write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+def _wire_knowledge(target: Path, kg_home: Path | None) -> None:
+    """Point the game repo at the shared kg install and both knowledge bases.
+
+    craft.db lives with godogen so every game reads the same accumulated
+    craft knowledge; game.db is local and starts empty.
+    """
+    if kg_home is None:
+        print(kgwire.KG_MISSING_WARNING, file=sys.stderr)
+        return
+
+    craft_db = REPO_ROOT / layout.CRAFT_DB_NAME
+    game_db = target / ".kg" / layout.GAME_DB_NAME
+    game_db.parent.mkdir(parents=True, exist_ok=True)
+
+    _write_json(target / ".mcp.json", kgwire.mcp_config(kg_home, craft_db, game_db))
+    _write_json(
+        target / ".claude" / "settings.json",
+        kgwire.hook_settings(kg_home, craft_db, game_db),
+    )
+    print(f"Wired knowledge: kg at {kg_home}")
+
+    if not craft_db.exists():
+        print(
+            f"note: {craft_db} does not exist yet -- import the seed corpus with\n"
+            f"      node \"{kg_home / 'scripts' / 'import-skills.js'}\" "
+            f"--db \"{craft_db}\" {REPO_ROOT / 'knowledge'}",
+            file=sys.stderr,
+        )
+
+
 def _render_tree(root: Path, tokens: dict[str, str]) -> None:
     """Substitute tokens in every text file under root, in place."""
     for path in sorted(root.rglob("*")):
@@ -64,12 +99,18 @@ def _guard_target(target: Path) -> None:
     """--force deletes the target; make sure it is not something precious."""
     resolved = target.resolve()
     if resolved == REPO_ROOT or REPO_ROOT.is_relative_to(resolved):
-        raise UnsafeTarget(f"refusing to wipe {resolved} — it contains the godogen source")
+        raise UnsafeTarget(f"refusing to wipe {resolved} -- it contains the godogen source")
     if resolved.parent == resolved:
         raise UnsafeTarget(f"refusing to wipe a filesystem root: {resolved}")
 
 
-def publish(engine: str, out: Path | str, force: bool = False) -> Path:
+def publish(
+    engine: str,
+    out: Path | str,
+    force: bool = False,
+    kg_home: Path | None = None,
+    wire_knowledge: bool = True,
+) -> Path:
     """Render the runtime layout for `engine` into `out`. Returns the target path."""
     tokens_manifest = layout.manifest_tokens(engine)  # raises UnknownEngine
     tokens_skill = layout.skill_tokens(engine)
@@ -104,6 +145,10 @@ def publish(engine: str, out: Path | str, force: bool = False) -> Path:
     guide = (REPO_ROOT / "engines" / guide_name).read_text(encoding="utf-8")
     _write(target / guide_name, guide)
     print(f"Created {guide_name}")
+
+    # --- Knowledge: the shared kg install and both databases ---
+    if wire_knowledge:
+        _wire_knowledge(target, kg_home if kg_home is not None else kgwire.find_kg_home())
 
     # --- .gitignore (published instruction files are regenerated) ---
     gitignore = target / ".gitignore"

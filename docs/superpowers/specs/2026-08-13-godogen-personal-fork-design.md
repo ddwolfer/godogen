@@ -61,7 +61,11 @@ godogen 這個 source repo **本身就是跨專案知識庫**。
 | `craft.db` | godogen repo | 跨專案:引擎陷阱、Windows 工具鏈、設計原則、方法論 | 收割時寫,人審過 |
 | `<game>.db` | 遊戲 repo | 本專案:設計決策、平衡發現、pivot 紀錄 | run 中自動寫 |
 
-`.mcp.json` 宣告兩個 server 實例(`kg-craft`、`kg-game`)。三個**注入型** hook(`session-start`、`post-compact`、`auto-recall`)各對兩個庫跑一次,輸出是純文字,兩份自然串接;`search-enforcer` 是政策閘門不是內容注入,只跑一次,避免重複攔阻。
+`.mcp.json` 宣告兩個 server 實例(`kg-craft`、`kg-game`)。三個**注入型** hook(`session-start`、`post-compact`、`auto-recall`)各對兩個庫跑一次,輸出是純文字,兩份自然串接,craft 先於 game。
+
+`search-enforcer` **不接**。實作時讀原始碼發現:它判斷「有沒有查過記憶」是靠硬編碼的 `mcp__knowledge-graph__*` 工具名前綴,永遠對不上 `kg-craft` / `kg-game` 這兩個 server 名 —— 接上去會讓它每個 session 擋掉所有寫入直到三次熔斷。它本身也是靠旗標檔 opt-in、預設關閉的最弱一環。要接必須先修 kg。
+
+`craft.db` 與 `game.db` 都不進版控。`knowledge/*.md` 才是 craft 的真相來源(可 diff、可 review),`.db` 是它的檢索索引。`game.db` 則因為第 1 層是從 commit message 收割的,隨時可從 git 歷史重建。
 
 新遊戲第一天就帶著全部 craft 知識入場,同時開始長自己的。
 
@@ -70,6 +74,8 @@ godogen 這個 source repo **本身就是跨專案知識庫**。
 kg 裝在機器上的固定位置(預設 `D:\AI\kg`,可由 `GODOGEN_KG_HOME` 覆寫),`craft.db` 與 godogen 的 `knowledge/` 同住。`npm install` 與 Qwen3-Embedding 模型(約 560MB)只下載一次。
 
 publish 時把絕對路徑寫進遊戲 repo 的 `.mcp.json` 與 `.claude/settings.json`。找不到 kg 時 publish 印出警告並產出不含 kg 的 repo —— 遊戲仍然能做,只是沒有記憶。
+
+因為 kg 與 `craft.db` 都是共用的,遊戲 repo **不複製** `knowledge/` 進去 —— MCP server 用絕對路徑直接讀 godogen 的 `craft.db`,複製一份只會製造會過期的副本。
 
 ### 4. 讀取路徑(照抄 kg 現行機制)
 
@@ -80,7 +86,6 @@ publish 時把絕對路徑寫進遊戲 repo 的 `.mcp.json` 與 `.claude/setting
 | `session-start.js` | SessionStart(startup) | 開場注入核心規則 |
 | `post-compact.js` | SessionStart(compact) | **壓縮後重新注入** |
 | `auto-recall.js` | UserPromptSubmit | 依當下訊息檢索相關知識 |
-| `search-enforcer.js` | PreToolUse | 動手前強制查記憶 |
 
 `post-compact` 是其中最關鍵的一個:一次 generation run 要跑幾小時、必定壓縮,而 engine guide 只在開頭讀一次。這是上游 docs-only 設計的真實破洞。
 
@@ -258,5 +263,7 @@ publish 時把絕對路徑寫進遊戲 repo 的 `.mcp.json` 與 `.claude/setting
 ## 已知限制
 
 - kg 共用一份代表遊戲 repo 不自包含,換機器要重裝;公開時他人需自行先裝 kg
+- `search-enforcer` hook 目前不接(理由見上)。要接必須先在 kg repo 修掉硬編碼的工具名前綴
+- 種子語料匯入 `craft.db` 需要 kg 實裝,且匯入時要確認 `trust` 欄位設成 `principle` —— `post-compact.js` 只注入 `trust = 'principle'` 的節點,設錯的話壓縮後注入會是空的
 - 種子語料以 Godot / 戰術模擬類為主,對其他類型遊戲的覆蓋率未知
 - 第 1 層寫入依賴 commit message 含既定段落標題;不寫這些段落的 commit 不會產生 episode
