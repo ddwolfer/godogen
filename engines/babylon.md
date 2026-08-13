@@ -1,5 +1,10 @@
 # Babylon.js engine guide
 
+> Inherited from upstream and **not verified on Windows**. Kept in English
+> because it has not been re-checked against a real run — the Godot guide is
+> in Chinese precisely because every line of it has. Treat anything here as a
+> starting point, and correct it from what you observe.
+
 Stack: **Babylon.js** (`@babylonjs/core` + `@babylonjs/loaders`), **Vite**, **TypeScript**, Node 22+.
 
 ## Project shape
@@ -7,8 +12,9 @@ Stack: **Babylon.js** (`@babylonjs/core` + `@babylonjs/loaders`), **Vite**, **Ty
 A plain Vite + TS project is enough. Scaffold one (`npm create vite@latest . -- --template vanilla-ts`), add `@babylonjs/core` and `@babylonjs/loaders`, then:
 
 - A fullscreen `<canvas>` in `index.html` and a render loop: create an `Engine`, build a `Scene`, call `engine.runRenderLoop(() => scene.render())`, and resize on `window`.
-- Put gameplay in `src/` modules; keep generated assets under `src/assets/` and load them through Vite (`import url from './assets/x.glb?url'`).
-- Drive gameplay off `scene.onBeforeRenderObservable` and the engine delta — don't assume a fixed frame rate.
+- **Keep the simulation out of the render layer.** `src/sim/` holds pure TypeScript that imports nothing from `@babylonjs` and never reads engine delta; `src/render/` reads its state and draws. This is what makes replay, measurement, and tests possible — see the architecture section of `CLAUDE.md`.
+- Keep generated assets under `src/assets/` and load them through Vite (`import url from './assets/x.glb?url'`).
+- Drive the render layer off `scene.onBeforeRenderObservable` and the engine delta; step the simulation on a fixed tick and interpolate between ticks for display.
 
 Commands: `npm install` · `npm run dev` · `npm run build` (use the build as a compile gate, but it is not proof the game runs — only the running page is).
 
@@ -26,7 +32,7 @@ Havok is available via `@babylonjs/havok`. Serve `HavokPhysics.wasm` from `publi
 
 Load the running dev URL in headless Chrome/Chromium (`playwright-core`, or `google-chrome --headless`) and screenshot. This is how you verify your own work and how you produce the proof video.
 
-- **Use a real GPU.** Headless Chrome silently falls back to SwiftShader/llvmpipe, which renders slowly or blank. On Linux, run under `xvfb-run` and request hardware (`--use-angle=vulkan`); read the WebGL `RENDERER` string and warn if it contains `swiftshader`/`llvmpipe`/`lavapipe`.
+- **Use a real GPU.** Headless Chrome silently falls back to SwiftShader/llvmpipe, which renders slowly or blank. Request hardware explicitly (`--use-angle=d3d11` on Windows), read the WebGL `RENDERER` string, and warn if it contains `swiftshader`/`llvmpipe`/`lavapipe`. Prefer a real windowed browser over headless if the fallback cannot be avoided — a slow correct capture beats a fast blank one.
 - **Wait before shooting.** Capture only after the scene has rendered a frame and textures/GLBs have loaded — gate on a ready flag the game sets, or settle a fixed delay after network idle. Screenshotting too early gives a misleading blank frame.
 - **Proof video:** screenshot on an interval (~30fps for 15–20s) into a temp dir, then encode at ~720p: `ffmpeg -framerate 30 -i frame_%04d.png -c:v libx264 -pix_fmt yuv420p proof.mp4`.
 
