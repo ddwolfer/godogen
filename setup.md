@@ -1,144 +1,129 @@
 # Workstation Setup
 
-Shared workstation setup for the consolidated Godogen source repo.
+Windows-first. Everything here works on macOS and Linux too, but only Windows
+is verified.
 
-## .NET 9 SDK
+## Required
 
-Godot 4.5+ requires .NET 9.
+### Godot 4 — standard build
 
-### Linux (Ubuntu/Debian)
+The **standard** build, not .NET/Mono. This fork targets GDScript, so the
+extra toolchain buys nothing.
 
-```bash
-wget -q https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
-chmod +x /tmp/dotnet-install.sh
-/tmp/dotnet-install.sh --channel 9.0 --install-dir ~/.dotnet
+Install from [godotengine.org](https://godotengine.org/download/), Steam, or
+`winget install GodotEngine.GodotEngine`, then either put it on `PATH` or note
+the full path — the runners in a published repo read `GODOT_PATH`.
+
+```
+godot --version          # 4.x.x.stable
+godot --headless --quit  # harmless RID warnings on exit are fine
 ```
 
-Add to `~/.bashrc`:
+Godot's Windows executable is a GUI-subsystem program: a direct call neither
+waits nor yields stdout, and a parse error hangs it instead of exiting. Never
+drive it without a timeout. The engine guide has a runner that gets this right.
 
-```bash
-export PATH="$HOME/.dotnet:$PATH"
-export DOTNET_ROOT="$HOME/.dotnet"
+### Python 3.11+
+
 ```
-
-### macOS
-
-```bash
-brew install dotnet@9
-```
-
-## Rust
-
-Bevy projects require a current Rust toolchain:
-
-```bash
-rustup update stable
-cargo --version
-rustc --version
-```
-
-## Node.js And Browser
-
-Babylon.js projects require Node.js 22.12+ and npm:
-
-```bash
-node --version
-npm --version
-```
-
-Browser capture requires Chrome or Chromium with hardware WebGL2. Install one system browser and set `CHROME_BIN` if it is not on a common path:
-
-```bash
-command -v google-chrome || command -v chromium || command -v chromium-browser
-export CHROME_BIN=/path/to/chrome
-```
-
-Babylon capture prefers hardware WebGL2. A fallback to a software renderer (SwiftShader, llvmpipe, lavapipe, etc.) on a GPU-equipped host means the browser GPU path is misconfigured and worth fixing; on a GPU-less host it still captures, at reduced quality and speed.
-
-## System Packages
-
-```bash
-sudo apt-get install vulkan-tools xvfb ffmpeg imagemagick
-```
-
-- **vulkan-tools** — `vulkaninfo` for GPU validation
-- **xvfb** — virtual X11 display for headless Godot/Bevy runs and capture
-- **ffmpeg** — MP4 encoding of proof videos and sprite frame extraction
-- **imagemagick** — image resize, flip, crop for sprite pipelines
-
-On macOS:
-
-```bash
-brew install coreutils ffmpeg dotnet@9
-```
-
-## Python
-
-Requires Python 3.10+.
-
-```bash
-python3 --version
+python --version
 pip install -r asset-gen/tools/requirements.txt
+```
+
+`google-genai` is only needed for the paid Gemini fallback:
+
+```
 pip install google-genai
 ```
 
-In a published game repo, the same asset-generation requirements file lives at:
+### ffmpeg and ImageMagick
 
-- `.claude/skills/asset-gen/tools/requirements.txt` for Claude Code
-- `.agents/skills/asset-gen/tools/requirements.txt` for Codex
+Proof-video encoding and sprite frame work.
 
-`google-genai` is required by `asset_gen.py` for Gemini image generation.
-
-## Godot (.NET edition)
-
-The **.NET edition** is required for Godot projects. The standard Godot build cannot run C# scripts.
-
-### Linux
-
-```bash
-VERSION=$(curl -s https://api.github.com/repos/godotengine/godot/releases/latest | grep -oP '"tag_name": "\K[^"]+' | sed 's/-stable//')
-echo "Installing Godot .NET $VERSION"
-cd /tmp
-wget https://github.com/godotengine/godot/releases/download/${VERSION}-stable/Godot_v${VERSION}-stable_mono_linux_x86_64.zip
-unzip Godot_v${VERSION}-stable_mono_linux_x86_64.zip
-sudo mv Godot_v${VERSION}-stable_mono_linux_x86_64/Godot_v${VERSION}-stable_mono_linux.x86_64 /usr/local/bin/godot
-sudo mv Godot_v${VERSION}-stable_mono_linux_x86_64/GodotSharp /usr/local/bin/GodotSharp
+```
+winget install Gyan.FFmpeg ImageMagick.ImageMagick
 ```
 
-`GodotSharp/` must live next to the `godot` binary. Godot resolves it relative to itself.
+## Knowledge base
 
-### macOS
+The point of this fork: what one game learns, the next one starts with.
+Without it, every project begins from zero.
 
-```bash
-brew install --cask godot-mono
-sudo ln -sf /Applications/Godot_mono.app/Contents/MacOS/Godot /usr/local/bin/godot
+```
+git clone https://github.com/ddwolfer/Multi-knowledgeGraph D:\AI\kg
+cd D:\AI\kg && npm install
 ```
 
-### Verify
+Needs Node.js 22.12+. First run downloads a ~560MB embedding model, once.
 
-```bash
-dotnet --version                 # 9.0.x
-godot --version                  # 4.x.x.stable.mono
-godot --headless --quit          # may show harmless RID warnings
+`publish.py` looks for it at `GODOGEN_KG_HOME`, then `D:\AI\kg`, then a `kg/`
+folder beside this checkout. Publishing still works without it — it prints a
+warning and produces a repo with no memory.
+
+Import the seed corpus into the shared craft database. Three steps, none of
+them optional:
+
+```
+node D:\AI\kg\scripts\import-skills.js D:\AI\godogen\knowledge --db D:\AI\godogen\craft.db
+node D:\AI\kg\scripts\backfill-embeddings.js --db D:\AI\godogen\craft.db
+python scripts\seed_priority.py --db craft.db
 ```
 
-If `godot --headless --quit` crashes with assembly errors, check that `GodotSharp/` is next to the binary:
+**The backfill is not optional.** `import-skills.js` gates embedding on
+`isReady()`, which only becomes true after `embed()` has been called -- so a
+fresh process always writes zero vectors and still reports success. The
+backfill calls `embed()` directly. First run downloads a ~560MB model.
 
-```bash
-ls "$(dirname "$(which godot)")"/GodotSharp/
+**The priority seeding is not optional either.** The post-compact hook injects
+`ORDER BY access_count DESC LIMIT 10`; with a fresh import every count is 0
+and the selection is arbitrary. On a 20-entry corpus that dropped every
+principle, leaving traps and no method. Re-run it after every import.
+
+Verify -- do not trust the import's own reporting:
+
+```
+cd D:\AI\kg
+node -e "const D=require('better-sqlite3'),V=require('sqlite-vec');const db=new D('D:/AI/godogen/craft.db',{readonly:true});V.load(db);console.log('nodes',db.prepare('SELECT count(*) c FROM nodes').get().c,'vec',db.prepare('SELECT count(*) c FROM vec_nodes').get().c)"
 ```
 
-## API Keys
+Both numbers must match. `vec 0` means the backfill did not run.
 
-Set in environment:
+## Optional — local asset generation
 
-- `GOOGLE_API_KEY` — Gemini image generation
-- `XAI_API_KEY` — xAI Grok image/video generation
-- `TRIPO3D_API_KEY` — image-to-3D conversion
+All three are free per call and reproducible. Skip any you do not need; the
+skill falls back to paid cloud APIs.
 
-## Verify Rendering
+**Blender** — procedural unit models. Any recent version. Set `BLENDER_PATH`
+if it is not on `PATH` or in a conventional install location.
 
-```bash
-VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json vulkaninfo --summary 2>&1 | grep "deviceName"
-xvfb-run -a godot --headless --quit
+**ComfyUI** — icons and key art, expected at `127.0.0.1:8188`. Export a
+working workflow in **API format** and keep it as a template. Flux at 12 steps
+fits in 8GB VRAM.
+
+**A local audio model** — sound effects over HTTP at `127.0.0.1:8002`,
+accepting `{prompt, duration, seed, steps}` and returning `{raw_path}`.
+Point `sfx_gen.py --endpoint` elsewhere if yours differs.
+
+## Optional — Babylon.js
+
+Node.js 22.12+ and a Chrome/Chromium with hardware WebGL2 for capture. Set
+`CHROME_BIN` if it is not on a common path. Note that the Babylon guide is
+inherited from upstream and unverified on Windows.
+
+## Optional — paid asset APIs
+
+Only needed for the cloud fallback. Every call costs money.
+
+- `GOOGLE_API_KEY` — [Google AI Studio](https://aistudio.google.com/), Gemini images
+- `XAI_API_KEY` — [xAI](https://console.x.ai/home), Grok images and video
+- `TRIPO3D_API_KEY` — [Tripo3D](https://platform.tripo3d.ai/), image to 3D
+
+## Verify
+
 ```
+python -m pytest tests/ -v
+python publish.py --engine godot --out %TEMP%\godogen-check --force
+```
+
+The publish output names every file it wrote and warns if the knowledge base
+is missing.

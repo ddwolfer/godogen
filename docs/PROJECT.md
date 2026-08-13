@@ -1,54 +1,73 @@
 # Godogen — From Prompt to Playable Game
 
-Godogen turns a natural-language game brief into a playable Godot, Bevy, or Babylon.js project. The agent builds the game, generates assets, runs the engine, and proves the result from the running game.
+Godogen turns a natural-language game brief into a playable Godot or Babylon.js project. The agent builds the game, generates assets, runs the engine, and proves the result from the running game.
 
-It is not a game engine, a code generator, or an asset marketplace. It is a source repo that publishes a thin runtime — a manifest, an engine guide, and an asset skill — into a fresh game repo that Claude Code or Codex then builds in.
+It is not a game engine, a code generator, or an asset marketplace. It is a source repo that publishes a thin runtime — a manifest, an engine guide, skills, and a seeded knowledge base — into a fresh game repo that Claude Code then builds in.
 
 ## Source Model
 
-The repo is organized by engine, with the cross-engine pieces shared:
-
 - `prompts/runtime.md` — the runtime manifest
-- `asset-gen/` — the `asset-gen` skill
-- `engines/babylon.md`, `engines/godot.md`, `engines/bevy.md` — per-engine guides
+- `engines/godot.md`, `engines/babylon.md` — per-engine guides
+- `knowledge/` — the cross-project corpus, seeded into every published repo
+- `asset-gen/`, `skills/` — the skills a published repo carries
+- `hooks/harvest_commit.py` — tier 1 of the write path
 
-Engine and host agent are selected at render time:
+Engine is selected at render time:
 
 ```bash
-./publish.sh --engine godot   --agent claude --out ~/game
-./publish.sh --engine babylon --agent codex  --out ~/game
+python publish.py --engine godot   --out ~/game
+python publish.py --engine babylon --out ~/game
 ```
 
-Publishing writes `CLAUDE.md` + `.claude/skills/` for Claude Code, or `AGENTS.md` + `.agents/skills/` for Codex, plus the `<engine>.md` guide. Codex `agents/openai.yaml` is generated from the `asset-gen` `SKILL.md` frontmatter.
+Publishing writes `CLAUDE.md`, `.claude/skills/`, the `<engine>.md` guide, and — when a knowledge base is installed — `.mcp.json` and the hook configuration in `.claude/settings.json`.
+
+## Knowledge That Outlives the Game
+
+A game repo is finite; this repo is not. Lessons born in a game must flow back here to survive, and that loop is the reason the fork exists.
+
+**Reading** is automatic. Three hooks inject knowledge — at session start, after context compaction, and on every user message — each running against both databases, craft before game. The compaction hook matters most: a generation run lasts hours and will compact, and a guide read once at the start is gone by then. An agent does not look up what it does not know it needs.
+
+**Writing** has three tiers, ascending in friction:
+
+1. A `PostToolUse` hook parses `git commit` bodies for the sections a developer already writes and files them as episodes. Zero effort, so it does not lapse. IDs are derived from `sha1(commit:heading)`, which makes it idempotent and lets `--replay` rebuild a database from git history.
+2. `/kg-harvest` reviews a session's commits and episodes and proposes at most three entries for promotion. Batched, so it is one decision per session.
+3. Approved entries become markdown in `knowledge/` and are committed here.
+
+The corpus rule is that a lesson without a concrete case is a guess. Density is the whole value: general advice in the corpus becomes noise in every future injection.
 
 ## How a run works
 
-The runtime manifest is short: read the brief, build the game, keep durable status in `README.md`, generate assets with `asset-gen`, and follow the engine guide for stack, project sketch, and capture. There is no fixed multi-stage pipeline and no prescribed document protocol — a capable model plans and decomposes the work itself. The two things the manifest fixes are *where durable state lives* (`README.md`, so a run survives compaction) and *that the result is proven from the running game*.
+The manifest fixes four things and leaves the rest to the model: where durable state lives (`README.md`, so a run survives compaction), that simulation stays separate from rendering, how the result is verified, and that it is proven rather than claimed.
 
-The engine guide carries only what the model can't infer or discover quickly: the project sketch (what stack and layout to stand up), the capture recipe (how to render the running game headlessly), and the handful of silent-failure traps that pass a compile but break at runtime.
+The engine guide carries only what the model can't infer or discover quickly: the project sketch, the capture recipe, and the silent-failure traps that pass a compile and break at runtime.
 
-## Delivery
+## Verification
 
-The agent decides in-run how to involve the user, reading it from how the task is framed. A task phrased as an open-ended direction gets the live game early — a Babylon.js URL, or a Godot/Bevy project they run — with the user steering at decisions of taste, scope, or cost. A task handed over as a finished brief doesn't block on anyone: the agent makes reasonable calls, finishes, and closes with a 15–20s recording of the running game, which it watches back before calling the work done.
+Five layers, ordered by what actually catches problems:
 
-The manifest states only this intent; everything about *how to show and capture* the game lives in the engine guide, so both paths come free on any engine.
+1. The user's playthrough plus a plain-text run log — catches a wrong specification, which no test can, because the system is doing exactly what it was told.
+2. The agent reading its own screenshots and video — catches "built it, can't see it".
+3. Measurement probes — catch a mechanic that works and carries no weight.
+4. Automated tests — catch regressions, and go fake-green when the scenario under test never got set up.
+5. A full-speed playthrough — catches deadlocks.
+
+The first two look through a player's eyes; the rest look through the system's, and the system's eye can only prove the system did what it was told.
 
 ## Engine Support
 
-- **Godot** — Godot 4 C#/.NET. Scenes are generated at build time by headless `SceneTree` scripts; the guide carries the serialization rules (owner chain, GLB-recursion trap, post-pack validation) and the `--write-movie` + ffmpeg capture recipe.
-- **Bevy** — Rust, current stable Bevy resolved and pinned at build time, ECS scenes spawned `OnEnter`. The guide points the agent at the installed source for current APIs and gives the offscreen `RenderTarget::Image` capture recipe.
-- **Babylon.js** — TypeScript/Vite, served at a live URL. The guide covers the side-effect-import trap, Havok physics, and headless Chrome capture.
+- **Godot** — Godot 4 standard build, GDScript. Simulation is pure logic with no engine API, delta time, or engine physics, which is what makes runs replayable from a seed. The guide carries the Windows toolchain traps, the Python runners with mandatory timeouts, and the `--write-movie` capture recipe.
+- **Babylon.js** — TypeScript/Vite, served at a live URL. Inherited from upstream and unverified on Windows.
 
 ## What Makes This Different
 
-**Proof over claims.** A run is judged on the running game — a recorded clip or a live URL — not on code that compiles.
+**Knowledge compounds.** Each game starts with every previous game's lessons already in context.
 
-**Trust the model.** The runtime ships no scaffold and no planner. The model recreates boilerplate from a short sketch and decomposes the work itself; the guides spend their words only on what it genuinely can't know.
+**Proof over claims.** A run is judged on the running game, not on code that compiles.
 
-**Cost-aware asset generation.** Gemini, Grok, and Tripo3D are used where they make economic sense — the agent confirms costs with the user before generating, and the asset manifest in `README.md` tracks paths, in-game sizes, and costs so implementation doesn't lose them.
+**Trust the model, but not about the invisible.** The runtime still ships no scaffold and no planner. What it does spend words on is the class of failure that looks like success — a mechanic with no weight, a green test whose scenario never ran, five balance changes landed at once.
 
-**One source, many targets.** Engine and host agent are render-time choices over one source tree.
+**Assets are local and reproducible.** The same Blender script produces the same models forever; one locked style string keeps an icon set coherent. Paid APIs remain for what local models cannot do.
 
 ## Runtime Limitations
 
-The runtime does not ship a dedicated audio pipeline or mobile/native packaging.
+No in-engine audio pipeline (dynamic mixing, music state machines) — generation and post-processing only. No mobile or native packaging. The Babylon capture path is unverified on Windows. Promotion into the cross-project corpus stays manual by design.

@@ -1,66 +1,110 @@
-# Godot engine guide
+# Godot 引擎指南
 
-Stack: **Godot 4 (.NET / Mono build)**, **C#**. All Godot C# classes must be `partial`.
+技術棧:**Godot 4 標準版**(不是 .NET/Mono 版)、**GDScript**。3D 用 Jolt Physics 並固定 `physics_ticks_per_second`。
 
-## Project shape
+`project.godot` 的版本敏感欄位(`config_version` 等)跟安裝的工具鏈對齊 —— 跑 `godot --version` 確認,不要憑記憶寫死;既有專案則保留原值。
 
-- `project.godot` — config, input actions, display, physics. **Match version-sensitive fields to the installed toolchain** (`config_version`, and in `.csproj` the `Godot.NET.Sdk/...` version + `TargetFramework`) — run `godot --version` / `dotnet --version` and don't hardcode values from memory; on an existing project preserve them. For 3D, set `3d/physics_engine="Jolt Physics"` and a fixed `physics_ticks_per_second`.
-- `{ProjectName}.csproj` — name must match `assembly_name`; `<EnableDynamicLoading>true</EnableDynamicLoading>`.
-- `scripts/*.cs` runtime behavior · `scenes/*.tscn` scenes · `assets/` **only** files the running game loads (keep generation inputs/refs outside it).
-- Build gate: `dotnet build`, then `godot --headless --import` after asset changes, then `godot --headless --quit` (RID-leak warnings on headless exit are benign).
+## 專案形狀
 
-The user watches by running the project themselves (`godot --path .` or the editor) — keep it building and importing cleanly so each run reflects current state.
-
-## Scenes are generated at build time, not by hand
-
-Write scenes as **C# `SceneTree` scripts** that run once headless and emit a `.tscn`: `godot --headless --script scenes/BuildX.cs`. A builder builds the node hierarchy, sets properties, attaches scripts, packs, and `Quit()`s — it contains **no** runtime logic (no `_Ready`/`_Process`, signals, or game state). Build **leaf scenes first**, parents after.
-
-The serialization rules below are silent-failure — they pass compilation and drop nodes or bloat files only in the saved `.tscn`:
-
-- **Owner chain:** every node must have `Owner` set to the scene root or it won't serialize. After building, walk the tree and set `child.Owner = root` on all descendants — but **do not recurse into instantiated GLB/`.tscn` nodes** (those have a non-empty `SceneFilePath`). Recursing into a GLB inlines all its meshes as text → 100MB+ `.tscn`.
-- **Validate the pack:** count nodes before packing, `Instantiate()` the `PackedScene` after, and compare counts; gate `ResourceSaver.Save()` on the match. A silent drop otherwise looks like success.
-- **`SetScript()` disposes the C# wrapper** — set scripts *last*, after the hierarchy is built. For the root, add it under a temp `Node`, set the script, then re-fetch it via `temp.GetChild(0)` before packing.
-
-Sketch of the shared save path:
-
-```csharp
-void PackAndSave(Node root, string path) {
-    SetOwnerRecursive(root, root);               // skip nodes with SceneFilePath set
-    int expected = CountNodes(root);
-    var packed = new PackedScene();
-    if (packed.Pack(root) != Error.Ok) { Quit(1); return; }
-    var test = packed.Instantiate(); int got = CountNodes(test); test.Free();
-    if (got < expected) { GD.PushError("nodes dropped"); Quit(1); return; }   // serialization failed silently
-    ResourceSaver.Save(packed, path);
-    Quit(0);
-}
+```
+sim/          純邏輯。不 import 引擎節點、不碰 delta time、不碰引擎物理
+render/       呈現層。讀 sim 的狀態畫出來,不做任何判定
+data/*.json   單位、地圖、參數。改數值不用改程式
+tests/        headless 測試
+tools/        驗收工具:量測探針、截圖、autotest
+assets/       只放跑起來會載入的檔案(生成的中間產物放別處)
+runlogs/      每趟自動寫的純文字紀錄
 ```
 
-GLB models: instantiate the `PackedScene`, measure the `MeshInstance3D` AABB to scale, and use a **primitive** collision shape (Box/Sphere/Capsule) from the AABB — never `CreateTrimeshShape()`/`CreateConvexShape()` on imported meshes (drops to <1 FPS).
+`sim/` 與 `render/` 的界線是這個專案最重要的一條線,理由見 `CLAUDE.md`。判斷方式很簡單:**`sim/` 底下的檔案不應該出現 `Node`、`_process`、`delta`、`get_node`。**
 
-## Quirks worth knowing (silent-failure)
+`.tscn` 手工寫或用編輯器拉都可以,不需要在 build 時生成。
 
-Most Godot behavior the model already knows; these few fail with no error:
+## GDScript 的靜默失敗
 
-- **`ArrayMesh.GenerateNormals()`** is required for a procedural mesh to *receive* shadows. Without it (or with `CullMode.Disabled` as a "safety net"), shadows silently vanish — fix winding instead.
-- **MultiMeshInstance3D + GLB** loses the mesh on pack/save; use individual instances. `MaterialOverride` on GLB-internal nodes also won't serialize (owner is skipped) — use a procedural `ArrayMesh` when a custom material is needed.
-- **Raycasts don't reliably hit `ConcavePolygonShape3D`** (trimesh) — use a shape query or sample terrain height analytically.
-- **`.gdignore`** in a directory makes the importer skip it silently — only `screenshots/` should have one, never `assets/`.
-- **C# enum names:** training data is GDScript-biased, so guessed C# enum names are often wrong (`BGMode.Sky`, not `BGModeEnum.Sky`). Verify against the installed Godot — read the C# API in the Godot docs/assemblies rather than guessing.
-- Frame-rate-independent damping: `speed *= Mathf.Exp(-rate * delta)`, not `speed *= (1 - drag)` per tick.
+**最危險的一個:`sort_custom` 的 lambda 每條路徑都要 return。** 漏掉的分支靜默回 `null`,排序變隨機,決定論當場崩潰,而且沒有任何錯誤訊息。
 
-## Capture (proof video)
+```gdscript
+# 壞:少了 return
+cands.sort_custom(func(a, b):
+    if a[0] != b[0]:
+        return a[0] < b[0])
+```
 
-Hardware **Vulkan** gives correct rendering and is required for video; software Vulkan (`llvmpipe`/`lavapipe`) can still do stills but skip video and report it.
+其餘會咬人但**會報錯**的:
 
-Capture deterministically with Godot's movie writer from a dedicated capture `SceneTree` script under `test/`:
+- **untyped 來源不能用 `:=`。** Dictionary/JSON 取值、`load(...).new()` 的回傳、untyped 參數的成員呼叫全是 Variant。拿 JSON 當資料層就一定會遇到,一律顯式標型別。
+- **用型別確定的整數版數學函式** `mini()`/`maxi()`/`absi()`/`clampi()`,不要用多型的 `min()`/`abs()`/`clamp()`。從一開始就用可以迴避整族問題。
+- **三元運算子必須整條在同一個表達式裡。** 換行寫 `else` 會被當成獨立語句,錯誤訊息指向無關的行。
+- **`JSON.parse_string` 吃到 BOM 回 `null`。** 寫 JSON 的工具不要帶 BOM。
+
+## Windows 工具鏈
+
+Godot 的 Windows 執行檔是 **GUI 子系統程式**,所以:直接呼叫不會等待、stdout 被吞掉,而且 **parse error 會掛住不退出**。
+
+所有驅動 Godot 的腳本用 Python,並且**一定要有 timeout**:
+
+```python
+import subprocess, sys
+from pathlib import Path
+
+def run_godot(args, timeout=120):
+    """GUI-subsystem exe: capture both streams, and never wait forever."""
+    try:
+        p = subprocess.run(
+            [GODOT, *args], capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return 1, "", f"timed out after {timeout}s (parse error hangs the exe)"
+    return p.returncode, p.stdout, p.stderr
+```
+
+寫檔一律 `encoding="utf-8"`,不帶 BOM —— Windows 的預設 locale 是 cp950,會吃掉中文。
+
+## 驗收四件工具
+
+**測試 runner** —— `godot --headless --path . --script res://tests/run_tests.gd`。
+
+**腳本編譯失敗時 Godot 照樣印 `N passed` 並退出 0。** runner 必須自己判紅:
+
+```python
+code, out, err = run_godot(["--headless", "--path", ".", "--script", "res://tests/run_tests.gd"])
+print(out)
+if any(("SCRIPT ERROR" in l or l.startswith("ERROR")) for l in err.splitlines()):
+    print("RUNNER: script errors in stderr -> forcing failure")
+    code = 1
+sys.exit(code)
+```
+
+**截圖** —— headless 跑不出畫面。開真視窗、跑 N 幀 `save_png`、自動退出,由環境變數決定輸出路徑;然後**你自己把 PNG 讀回來看**。這一層專抓「做了但看不見」,而且能在 commit 前抓到。
+
+**量測探針** —— 直接驅動 `sim/`,零指令跑幾百場出勝率表。它抓的是測試抓不到的一整類問題:機制正確運作,但在玩家決策裡沒有份量。
+
+**autotest** —— 全速跑完一整場,專抓永不結束。把「超過 N tick 就印出現場狀態並 `quit(2)`」做成常駐診斷。
+
+測試設計上注意:**用對照組不要用絕對值**(「A 應該比 B 小」而不是「傷害 ≤ 某值」),並在斷言前先確認受測情境真的成立 —— 否則會出現「什麼都沒發生所以測試通過」的假綠。
+
+## 錄影
+
+收尾的 15–20 秒實況錄影用 Godot 的 movie writer:
 
 ```bash
-# under xvfb-run -a -s '-screen 0 1920x1080x24' on a headless Linux box; prefer the hardware Vulkan ICD
-godot --headless --import
-godot --write-movie screenshots/result/frame.png --fixed-fps 30 --quit-after 450 --script test/Presentation.cs
-ffmpeg -y -framerate 30 -pattern_type glob -i 'screenshots/result/frame*.png' \
+godot --path . --write-movie screenshots/result/frame.png --fixed-fps 30 --quit-after 450
+ffmpeg -y -framerate 30 -pattern_type glob -i "screenshots/result/frame*.png" \
   -c:v libx264 -pix_fmt yuv420p -movflags +faststart screenshots/result/video.mp4
 ```
 
-`--fixed-fps` makes motion deterministic (450 frames @30fps = 15s). **Pre-position the camera** in the builder/`_Initialize` (the first movie frame renders before `_Process`). Drive capture-time input from the script, not live keys. The clip must show the behavior progressing across the whole window — no dead time, no single looped frame.
+`--fixed-fps` 讓動態確定化(450 幀 @30fps = 15 秒)。**鏡頭要在第一幀之前就定位好** —— 第一張 movie frame 在 `_process` 之前就渲染了。錄製期間的輸入由腳本驅動,不要靠實際按鍵。
+
+影片必須整段都有東西在推進,不能有死時間或單格循環。錄影抓得到截圖抓不到的時序問題:原地抖動、節奏、特效時機。
+
+## 3D 陷阱
+
+- **GLB 模型的碰撞形狀要用 AABB 推出的原始形狀**(Box/Sphere/Capsule),絕不要對匯入的 mesh 用 trimesh 或 convex —— 會掉到 1 FPS 以下。
+- **`ArrayMesh.GenerateNormals()`** 是程序化 mesh 能**接收**陰影的必要條件。少了它(或用 `CullMode.Disabled` 當「保險」)陰影會靜默消失 —— 該修的是頂點環繞順序。
+- **raycast 打不到 `ConcavePolygonShape3D`**(trimesh)。改用 shape query,或用解析式取地形高度。
+- **`.gdignore`** 會讓匯入器靜默跳過整個目錄。只有 `screenshots/` 該有,`assets/` 絕對不能有。
+- 幀率無關的衰減用 `speed *= exp(-rate * delta)`,不是每 tick 乘 `(1 - drag)`。
+- 資產變更後跑 `godot --headless --path . --import` 生 `.import`,否則匯出會少檔案。
+- 改完 `.gd` 之後 `reload_current_scene` 吃不到改動,要整個遊戲重開。

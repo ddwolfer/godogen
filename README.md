@@ -1,73 +1,84 @@
 # Godogen
 
-Autonomous game development for Godot, Bevy, and Babylon.js with Claude Code and Codex.
+Autonomous game development for Godot and Babylon.js with Claude Code — where each project starts with what the last one learned.
 
-[![Watch the video](https://img.youtube.com/vi/eUz19GROIpY/maxresdefault.jpg)](https://youtu.be/eUz19GROIpY)
+A personal fork of [alex_erm/godogen](https://github.com/alex-erm/godogen). See [Differences from upstream](#differences-from-upstream).
 
-[Watch the demos](https://youtu.be/eUz19GROIpY) · [Prompts](docs/demo_prompts.md)
+[Watch the upstream demos](https://youtu.be/eUz19GROIpY) · [Prompts](docs/demo_prompts.md)
 
-Describe a game. The agent builds it, generates assets, runs the engine, and proves the result — as a live game you watch and steer, or as a recorded video when you're not there. It reads the situation and decides which, in the run.
+Describe a game. The agent builds it, generates assets, runs the engine, and proves the result — as a live game you watch and steer, or as a recorded video when you're not there.
 
-This repo is not a game. It is the source for a generator that produces games: **godogen -> game repo -> game**. You publish into a fresh game repo — choosing engine and host-agent flavor — then the agent runs inside that repo and builds the actual game from a short engine guide.
+This repo is not a game. It is the source for a generator that produces games: **godogen -> game repo -> game**. You publish into a fresh game repo, and the agent builds the actual game inside it from a short engine guide.
+
+## The part that compounds
+
+Game repos are disposable. This one is not, so it holds the memory.
+
+```
+   godogen  ──── publish + seed ────►  game repo
+      ▲                                    │
+      │                                    │ accumulates during the run
+      └────────  harvest (reviewed) ───────┘
+```
+
+Two knowledge bases, both mounted in every published repo:
+
+- **`craft.db`** lives here and carries what every game should already know — engine traps, toolchain traps, design principles. Seeded from [`knowledge/`](knowledge/), which is 16 entries and reviewable as plain markdown.
+- **`game.db`** lives in the game repo and accumulates that game's own findings.
+
+Writing back asks nothing of you. A hook reads the `踩到的坑` sections you were already putting in commit messages and files them as episodes; `/kg-harvest` later proposes the handful that generalise, and you approve or reject.
+
+Requires [Multi-knowledgeGraph](https://github.com/ddwolfer/Multi-knowledgeGraph). Without it, publishing still works — the repo just has no memory.
 
 ## Source layout
 
-A published repo is intentionally thin: a runtime manifest, a one-page engine guide, and the asset-generation skill. The agent recreates everything else (project scaffold, capture tooling) from the guide.
-
-- `prompts/runtime.md` — the runtime manifest
-- `asset-gen/` — the cross-engine asset-generation skill
-- `engines/babylon.md`, `engines/godot.md`, `engines/bevy.md` — per-engine guides
-- [publish.sh](publish.sh) — renders the runtime layout for the chosen engine and host agent
-
-Engine and host agent (Claude vs Codex) are publish-time render choices, not separate source trees.
+- `prompts/runtime.md` — the runtime manifest, rendered to `CLAUDE.md`
+- `engines/godot.md`, `engines/babylon.md` — per-engine guides
+- `knowledge/` — the cross-project corpus
+- `asset-gen/` — the asset-generation skill
+- `skills/` — additional skills installed into published repos
+- `hooks/` — the commit harvester
+- [publish.py](publish.py) — renders all of it for the chosen engine
 
 ## What the agent does
 
-- **Godot 4** — C#/.NET projects with build-time scene generation, runtime scripts, and Jolt physics.
-- **Bevy** — Rust/Bevy projects with code-first ECS scenes and offscreen capture.
-- **Babylon.js** — TypeScript/Vite browser games served at a live URL.
-- **Asset generation** — Gemini for precise references and characters, xAI Grok for textures and simple objects, Tripo3D for image-to-3D and rigged biped animation; animated sprites via Grok video with loop detection and background removal.
-- **Proof over claims** — the agent judges results from the running game (a live URL or a recorded clip), not from a clean compile, so visible defects drive the next iteration.
-- **You choose your involvement** — watch the live game (a Babylon.js URL, or a Godot/Bevy project you run) and steer at decision points, or leave the run unattended and get a 15–20s proof recording at the end. The agent takes its cue from how you frame the task.
+- **Godot 4** — GDScript on the standard build, simulation split from rendering so runs are deterministic and replayable.
+- **Babylon.js** — TypeScript/Vite served at a live URL. Inherited from upstream, unverified on Windows.
+- **Assets, locally** — Blender procedural models, ComfyUI icons, and a local audio model for sound effects, with the post-processing that makes their output usable. Free per call and reproducible. Paid cloud APIs remain as a fallback.
+- **Proof over claims** — judged from the running game, never from a clean build. Five layers, ordered by what actually catches problems: your playthrough, the agent reading its own screenshots, measurement probes, tests, then deadlock checks.
+- **You choose your involvement** — steer a live game, or leave the run unattended and get a 15–20s proof recording. The agent takes its cue from how you frame the task.
 
 ## Getting started
 
-### Prerequisites
-
-- [Godot 4](https://godotengine.org/download/) (.NET build) on `PATH` for Godot projects
-- Rust/Cargo for Bevy projects
-- Node.js 22.12+ and npm for Babylon.js projects
-- Chrome or Chromium with hardware WebGL2 for Babylon.js browser capture
-- Python 3 with pip
-- API keys as environment variables:
-  - `GOOGLE_API_KEY` — [Google AI Studio](https://aistudio.google.com/) for Gemini image generation
-  - `XAI_API_KEY` — [xAI Grok](https://console.x.ai/home) for image/video generation
-  - `TRIPO3D_API_KEY` — [Tripo3D](https://platform.tripo3d.ai/) for 3D generation
-- System packages from [setup.md](setup.md): `vulkan-tools`, `xvfb`, `ffmpeg`, `imagemagick`, plus platform-specific extras
-- Tested on Ubuntu, Debian, and macOS
-- Claude Code or Codex
-
-### Publish a game repo
-
-Pick the engine and host agent:
+See [setup.md](setup.md) for prerequisites. The short version: Godot 4 standard build, Python 3.11+, ffmpeg, and Node.js for the knowledge base.
 
 ```bash
-./publish.sh --engine godot   --agent claude --out ~/my-game       # CLAUDE.md + .claude/skills/
-./publish.sh --engine babylon --agent codex  --out ~/my-game       # AGENTS.md + .agents/skills/
-./publish.sh --engine bevy    --agent claude --out ~/my-game
+python publish.py --engine godot   --out ~/my-game
+python publish.py --engine babylon --out ~/my-game
 ```
 
-Pass `--force` to wipe existing contents at the target before re-publishing.
+`--force` wipes the target first.
 
-## Running on a server
+## Differences from upstream
 
-A full generation run can take hours, so it's convenient to offload it to a server — ideally a GPU instance, since engine rendering and video capture are much faster with hardware acceleration.
+Windows-first, Godot-centric, and opinionated where upstream is deliberately not.
 
-- Keep the session alive across SSH drops with `tmux` or `screen`.
-- Enable remote control so you can check in and steer the run from any device — both Claude Code and Codex have official remote-control interfaces.
+- **Memory across projects.** Upstream ships no knowledge layer; a run's lessons die with the repo.
+- **GDScript, not C#.** Upstream switched to C# over GDScript's type-inference traps. Measured against a 1015-test GDScript project those cost about three minutes a day and never caused a runtime bug, while that day's real bugs were all things a compiler cannot catch. The guide documents the GDScript trap that does matter — a `sort_custom` lambda missing a return silently kills determinism.
+- **Local assets first.** Upstream generates everything through paid APIs and ships no audio pipeline at all.
+- **An opinionated manifest.** Upstream's is eleven lines and says nothing about method. This one adds sim/render separation, the verification ladder, and two debugging rules — the failures that look like success.
+- **Engines** — Godot and Babylon.js. Bevy is dropped.
+- **Host agent** — Claude Code. Codex rendering is dropped.
+- **`publish.py` replaces `publish.sh`** — one implementation for Windows and POSIX, no `rsync`, `mktemp`, or `xvfb`.
+
+Documents in Chinese have been verified against real runs; documents in English are inherited from upstream and have not.
+
+## Development
+
+```bash
+python -m pytest tests/ -v
+```
 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
-
-Follow progress: [@alex_erm](https://x.com/alex_erm)
