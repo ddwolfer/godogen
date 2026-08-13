@@ -33,13 +33,22 @@ def runtime_asset_dir(engine: str) -> str:
     return _RUNTIME_ASSET_DIR[engine]
 
 
+# Slash commands, shared by every rendered document. Kept in one place so a
+# new one cannot reach the manifest while missing from the skills, or vice
+# versa -- an unsubstituted ${TOKEN} ships silently.
+_COMMANDS = {
+    "ASSET_SKILL_COMMAND": "/asset-gen",
+    "KG_HARVEST_COMMAND": "/kg-harvest",
+}
+
+
 def manifest_tokens(engine: str) -> dict[str, str]:
     """Tokens substituted into prompts/runtime.md when rendering CLAUDE.md."""
     _check(engine)
     return {
+        **_COMMANDS,
         "ENGINE_NAME": ENGINES[engine],
         "ENGINE_GUIDE_FILE": f"{engine}.md",
-        "ASSET_SKILL_COMMAND": "/asset-gen",
     }
 
 
@@ -47,10 +56,9 @@ def skill_tokens(engine: str, godogen_root: str = "") -> dict[str, str]:
     """Tokens substituted into the skill tree under .claude/skills/."""
     _check(engine)
     return {
+        **_COMMANDS,
         "AGENT_NAME": "Claude",
         "ASSET_GEN_SKILL_DIR": ".claude/skills/asset-gen",
-        "ASSET_SKILL_COMMAND": "/asset-gen",
-        "KG_HARVEST_COMMAND": "/kg-harvest",
         "GODOGEN_ROOT": godogen_root,
         "RUNTIME_ASSET_DIR": _RUNTIME_ASSET_DIR[engine],
     }

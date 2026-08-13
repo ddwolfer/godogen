@@ -28,6 +28,15 @@ def test_gitignore_includes_engine_specific_and_common_lines():
     assert "bin/" in lines
 
 
+def test_command_tokens_are_shared_by_manifest_and_skills():
+    """A command token present in one but not the other ships as a literal
+    ${TOKEN} in whichever document was missed."""
+    manifest = layout.manifest_tokens("godot")
+    skills = layout.skill_tokens("godot")
+    for key in ("ASSET_SKILL_COMMAND", "KG_HARVEST_COMMAND"):
+        assert manifest[key] == skills[key]
+
+
 def test_unknown_engine_raises():
     with pytest.raises(layout.UnknownEngine):
         layout.manifest_tokens("bevy")

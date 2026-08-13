@@ -1,11 +1,44 @@
-# Build ${ENGINE_NAME} game from a description
+# 從一句描述做出 ${ENGINE_NAME} 遊戲
 
-- Keep durable project status in `README.md`: what is built, what is left, and an asset table.
-- Generate visual assets with `${ASSET_SKILL_COMMAND}`. Confirm the spend with the user before the first paid generation.
-- Read `${ENGINE_GUIDE_FILE}` for engine guidance: stack, project layout, how to run, and how to capture.
+- 專案狀態寫在 `README.md`:做好了什麼、還剩什麼、資產表。這份要能在 context 壓縮後撐住。
+- 視覺與音訊素材用 `${ASSET_SKILL_COMMAND}` 生成。第一次付費生成前先跟使用者確認花費。
+- 讀 `${ENGINE_GUIDE_FILE}`:技術棧、專案配置、怎麼跑、怎麼截圖錄影,以及會靜默失敗的陷阱。
+- 你的記憶庫裡有前幾個專案累積的教訓,它們會自動出現在你的 context 裡。看到相關的就照做,不要重新發明。
 
-## Delivery
+## 架構:模擬與呈現分離
 
-Judge progress from the running game, never from a clean build: verify the structural things yourself (it loads, no errors, assets present) and let what you see drive the next iteration.
+只要遊戲有「規則」可言(戰鬥、經濟、模擬、程序生成),就把**模擬層**與**呈現層**分開:模擬層不碰引擎 API、不碰 delta time、不碰引擎物理。
 
-Decide from how the task is framed how to work. A task that invites collaboration — open-ended, exploratory, phrased as a direction rather than a spec — gets the live game early: checkpoint at decisions of taste, scope, or cost, and build freely in between. A task handed over as a finished brief to execute gets reasonable calls and steady progress, no blocking. Either way the result is proven, not claimed — if the user hasn't seen it running, finish with a 15–20s video of the game in action, and watch it back before you call the work done.
+這買到的第一件事不是測試,是**決定論** —— 同一個種子等於同一場遊戲,永遠。有了它,任何 bug 可重現、任何改動可 A/B、幾百場模擬可以在幾分鐘內跑完出一張數據表。引擎物理跨執行不保證決定論,用它做判定,上面這些全部作廢。
+
+第二件事才是測試。第三件是呈現層可以自由撒謊 —— 拋物線高度、死亡動畫、受擊脈衝都不影響判定,改起來零風險。
+
+代價要知道:**每個機制要做兩次**,而且「做了但看不見」是這個架構的特有病。想在呈現層偷寫邏輯的時候,通常代表模擬層的模型選錯了。
+
+純呈現型的東西(視覺 demo、無規則的探索場景)不適用,別硬套。
+
+## 驗收:五層,由外而內
+
+判斷做完了沒,從跑起來的遊戲判斷,絕不從編譯乾淨判斷。五種驗證方式,按最常抓到真問題排序:
+
+1. **使用者實玩 + 每趟自動寫的純文字 run 紀錄** —— 抓「規格本身錯了」。系統完全按規格運作時,只有這層看得出規格是錯的。
+2. **你自己看畫面** —— 跑幾秒存成圖或影片,自己讀回來。抓「做了但看不見」。**是你看,不是等使用者看** —— 差別在於能在 commit 前抓到。
+3. **量測探針** —— 零指令跑大量場次出數據表。抓「機制正確運作但在決策裡沒有份量」。
+4. **自動化測試** —— 抓迴歸。注意測試會假綠:用對照組(A 應該比 B 小)而不是絕對值,並在斷言前先確認受測情境真的成立。
+5. **全速跑完一整場** —— 抓死鎖與永不結束。
+
+前兩層是用玩家的眼睛看,後三層是用系統的眼睛看。**系統的眼睛只能證明系統做到了它被告知的事。**
+
+## 兩條除錯守則
+
+**「不好玩 / 沒感覺」先查呈現層,再查數值。** 多數時候不是不夠強,是看不見。這條特別容易被忽略,因為調數值是你看得到的動作,而呈現層的缺失在程式碼裡沒有痕跡。
+
+**一次只轉一個旋鈕。** 同時上五個平衡改動,結果只會告訴你「壞了」,不會告訴你「誰壞的」。而且改動之間會互相放大 —— 兩個各自合理的規則相乘,會長出第三個誰也沒預測到的效果。
+
+## 交付
+
+從任務被交代的方式判斷怎麼工作。開放式、探索性、講方向而非規格的任務,早一點把能跑的東西交出去:在品味、範圍、花費的決策點停下來問,中間放手做。當成完成品交辦下來的任務就別卡人:做合理的判斷、穩定推進。
+
+兩種都一樣 —— 結果要被證明,不是被宣稱。使用者沒看過它跑起來的話,收尾要有一段 15–20 秒的遊戲實況錄影,而且**你要自己看過**才算做完。
+
+工作告一段落時,用 `${KG_HARVEST_COMMAND}` 檢查有沒有值得帶到下一個專案的教訓。大部分時候沒有,那就說沒有。
