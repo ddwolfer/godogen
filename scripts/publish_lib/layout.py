@@ -43,13 +43,15 @@ def manifest_tokens(engine: str) -> dict[str, str]:
     }
 
 
-def skill_tokens(engine: str) -> dict[str, str]:
+def skill_tokens(engine: str, godogen_root: str = "") -> dict[str, str]:
     """Tokens substituted into the skill tree under .claude/skills/."""
     _check(engine)
     return {
         "AGENT_NAME": "Claude",
         "ASSET_GEN_SKILL_DIR": ".claude/skills/asset-gen",
         "ASSET_SKILL_COMMAND": "/asset-gen",
+        "KG_HARVEST_COMMAND": "/kg-harvest",
+        "GODOGEN_ROOT": godogen_root,
         "RUNTIME_ASSET_DIR": _RUNTIME_ASSET_DIR[engine],
     }
 

@@ -93,6 +93,22 @@ def test_pycache_is_not_published(tmp_path: Path):
     assert not list(out.rglob("__pycache__"))
 
 
+def test_publish_installs_kg_harvest_skill(tmp_path: Path):
+    out = tmp_path / "game"
+    publish.publish("godot", out, wire_knowledge=False)
+    assert (out / ".claude" / "skills" / "kg-harvest" / "SKILL.md").is_file()
+
+
+def test_kg_harvest_skill_knows_where_godogen_is(tmp_path: Path):
+    out = tmp_path / "game"
+    publish.publish("godot", out, wire_knowledge=False)
+    text = (out / ".claude" / "skills" / "kg-harvest" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "${" not in text
+    assert str(publish.REPO_ROOT) in text
+
+
 def _fake_kg(root: Path) -> Path:
     kg = root / "kg"
     (kg / "hooks").mkdir(parents=True)

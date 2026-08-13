@@ -118,7 +118,7 @@ def publish(
 ) -> Path:
     """Render the runtime layout for `engine` into `out`. Returns the target path."""
     tokens_manifest = layout.manifest_tokens(engine)  # raises UnknownEngine
-    tokens_skill = layout.skill_tokens(engine)
+    tokens_skill = layout.skill_tokens(engine, godogen_root=str(REPO_ROOT))
 
     target = Path(out)
     if force:
@@ -136,6 +136,9 @@ def publish(
         staged = Path(tmp) / "skills"
         staged.mkdir()
         shutil.copytree(REPO_ROOT / "asset-gen", staged / "asset-gen", ignore=_IGNORE)
+        for skill in sorted((REPO_ROOT / "skills").iterdir()):
+            if skill.is_dir():
+                shutil.copytree(skill, staged / skill.name, ignore=_IGNORE)
         _render_tree(staged, tokens_skill)
         shutil.copytree(staged, target / ".claude" / "skills", dirs_exist_ok=True)
     print("Installed skills")
