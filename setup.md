@@ -27,16 +27,6 @@ export DOTNET_ROOT="$HOME/.dotnet"
 brew install dotnet@9
 ```
 
-## Rust
-
-Bevy projects require a current Rust toolchain:
-
-```bash
-rustup update stable
-cargo --version
-rustc --version
-```
-
 ## Node.js And Browser
 
 Babylon.js projects require Node.js 22.12+ and npm:
@@ -62,7 +52,7 @@ sudo apt-get install vulkan-tools xvfb ffmpeg imagemagick
 ```
 
 - **vulkan-tools** — `vulkaninfo` for GPU validation
-- **xvfb** — virtual X11 display for headless Godot/Bevy runs and capture
+- **xvfb** — virtual X11 display for headless Godot runs and capture
 - **ffmpeg** — MP4 encoding of proof videos and sprite frame extraction
 - **imagemagick** — image resize, flip, crop for sprite pipelines
 
@@ -82,10 +72,7 @@ pip install -r asset-gen/tools/requirements.txt
 pip install google-genai
 ```
 
-In a published game repo, the same asset-generation requirements file lives at:
-
-- `.claude/skills/asset-gen/tools/requirements.txt` for Claude Code
-- `.agents/skills/asset-gen/tools/requirements.txt` for Codex
+In a published game repo, the same asset-generation requirements file lives at `.claude/skills/asset-gen/tools/requirements.txt`.
 
 `google-genai` is required by `asset_gen.py` for Gemini image generation.
 
