@@ -68,7 +68,12 @@ def _wire_knowledge(target: Path, kg_home: Path | None) -> None:
     _write_json(target / ".mcp.json", kgwire.mcp_config(kg_home, craft_db, game_db))
     _write_json(
         target / ".claude" / "settings.json",
-        kgwire.hook_settings(kg_home, craft_db, game_db),
+        kgwire.hook_settings(
+            kg_home,
+            craft_db,
+            game_db,
+            harvest_script=REPO_ROOT / "hooks" / "harvest_commit.py",
+        ),
     )
     print(f"Wired knowledge: kg at {kg_home}")
 

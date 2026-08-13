@@ -83,9 +83,20 @@ def mcp_config(kg_home: Path, craft_db: Path, game_db: Path) -> dict:
     }
 
 
-def hook_settings(kg_home: Path, craft_db: Path, game_db: Path) -> dict:
+def hook_settings(
+    kg_home: Path,
+    craft_db: Path,
+    game_db: Path,
+    harvest_script: Path | None = None,
+) -> dict:
     """Claude Code hook config. Craft is injected before game, so
-    cross-project knowledge frames whatever this game has learned."""
+    cross-project knowledge frames whatever this game has learned.
+
+    `harvest_script` wires tier 1 of the write path: lessons already being
+    written into commit bodies get filed as episodes in the game database.
+    Referenced by absolute path rather than copied, so improvements to the
+    harvester reach every game repo without a re-publish.
+    """
     craft = str(Path(craft_db).resolve())
     game = str(Path(game_db).resolve())
 
@@ -113,4 +124,20 @@ def hook_settings(kg_home: Path, craft_db: Path, game_db: Path) -> dict:
             hooks.setdefault(event, []).append(group)
 
     hooks["SessionStart"] = session_start
+
+    if harvest_script is not None:
+        script = str(Path(harvest_script).resolve())
+        hooks["PostToolUse"] = [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": f'python "{script}" --db "{game}"',
+                        "timeout": HOOK_TIMEOUT_S,
+                    }
+                ],
+            }
+        ]
+
     return {"hooks": hooks}

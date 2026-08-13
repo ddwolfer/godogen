@@ -87,6 +87,26 @@ def test_search_enforcer_is_not_wired(tmp_path: Path):
     assert "search-enforcer" not in rendered
 
 
+def test_harvest_hook_absent_when_no_script_given(tmp_path: Path):
+    kg = _fake_kg(tmp_path)
+    settings = kgwire.hook_settings(kg, tmp_path / "craft.db", tmp_path / "game.db")
+    assert "PostToolUse" not in settings["hooks"]
+
+
+def test_harvest_hook_targets_bash_and_the_game_db(tmp_path: Path):
+    kg = _fake_kg(tmp_path)
+    script = tmp_path / "harvest_commit.py"
+    script.touch()
+    settings = kgwire.hook_settings(
+        kg, tmp_path / "craft.db", tmp_path / "game.db", harvest_script=script
+    )
+    group = settings["hooks"]["PostToolUse"][0]
+    assert group["matcher"] == "Bash"
+    command = group["hooks"][0]["command"]
+    assert "game.db" in command
+    assert "craft.db" not in command, "a game's lessons belong to that game"
+
+
 def test_hook_commands_use_absolute_paths(tmp_path: Path):
     kg = _fake_kg(tmp_path)
     settings = kgwire.hook_settings(kg, tmp_path / "craft.db", tmp_path / "game.db")
