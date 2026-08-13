@@ -44,6 +44,31 @@ def test_entry_has_no_bom(path: Path):
 
 
 @pytest.mark.parametrize("path", _entries(), ids=lambda p: p.name)
+def test_entry_opens_with_a_quote(path: Path):
+    """The importer sets trust='principle' only when it finds a 「」 quote, and
+    post-compact re-injects only principles. Without this line an entry imports
+    as a pattern and silently vanishes from the most important hook -- which is
+    exactly what happened to the three most technical pitfalls."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[2].startswith("> 「") and lines[2].rstrip().endswith("」"), (
+        f"{path.name} line 3 must be a > 「...」 one-line summary"
+    )
+
+
+@pytest.mark.parametrize("path", _entries(), ids=lambda p: p.name)
+def test_the_opening_quote_is_the_first_one_in_the_file(path: Path):
+    """The importer stores quotes[0] as the node's quote, scanning in document
+    order -- so the summary has to come before any other 「」 in the text."""
+    text = path.read_text(encoding="utf-8")
+    first = re.search(r"「([^」]+)」", text)
+    opening = text.splitlines()[2].strip().removeprefix("> ")
+    assert first is not None, path.name
+    assert f"「{first.group(1)}」" == opening, (
+        f"{path.name}: an earlier 「」 wins -- found {first.group(1)!r}"
+    )
+
+
+@pytest.mark.parametrize("path", _entries(), ids=lambda p: p.name)
 def test_cross_links_resolve(path: Path):
     """A [[link]] typo has no symptom — it just silently breaks the graph."""
     known = _slugs()

@@ -1,5 +1,7 @@
 # Godot 在 Windows 上是 GUI 型 exe
 
+> 「Godot 的 Windows 執行檔是 GUI 型程式:不等待、吞掉 stdout、parse error 掛住不退出,而且編譯失敗還印綠燈。」
+
 Godot 的 Windows 執行檔是 GUI 子系統程式。這代表它的行為跟你在 Linux 上的直覺**每一項都不同**,而且失敗方式全部是靜默的。
 
 ## 規則

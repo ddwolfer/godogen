@@ -959,6 +959,32 @@ python publish.py --engine godot --out /tmp/godogen-smoke --force
 
 ---
 
+## 驗收結果(2026-08-13)
+
+kg 指向 `D:/AI/guildrun/kg`(已安裝的既有實例,唯讀)進行驗證。
+
+**通過**
+
+1. `publish.py --engine godot` 產出完整 repo,含 `CLAUDE.md`、`godot.md`、兩個 skill、`.mcp.json`、`.claude/settings.json`、`.kg/`,零殘留 `${TOKEN}`。
+2. 三個注入型 hook 各對兩個 DB 接線,`post-compact.js` 實跑成功並注入知識。
+3. 收割 hook 端對端:真 commit(含「踩到的坑」段落)→ PostToolUse payload → episode 正確寫入,`type=lesson`、`context=踩到的坑`、`session_id` 都對。
+4. 對 guildrun 真實歷史 `--replay HEAD~40..HEAD` 收割出 3 條,依段落正確分類,資料為正確 UTF-8。
+5. 種子語料匯入:**17/17 皆為 `trust='principle'`**,`post-compact` 確認會注入。
+6. 全套測試 216 passed。
+
+**未驗證**
+
+- 端對端跑一次真實 generation run(需要 Godot 專案與數小時)。
+- Babylon 的 capture 路徑(從上游繼承,未在 Windows 驗證)。
+- `auto-recall.js` 與 `session-start.js` 只驗證了接線,未在真實 session 觀察注入內容。
+
+**實跑發現的兩個新問題**(都在 kg 側,不在本 repo)
+
+- **`post-compact.js` 只取 `LIMIT 10`,依 `access_count DESC` 排序。** 語料有 17 條,而全新匯入時 `access_count` 全為 0,所以壓縮後注入哪 10 條是不定的。語料再長就會有條目永遠進不了注入。
+- **`sqlite-vec` 擴充載入失敗(`no such module: vec0`),向量檢索是空的**,目前只有 FTS5 全文檢索有效。匯入時 `0 with embeddings` 就是這個徵兆。語意相近但用詞不同的查詢會召回不到。
+
+兩者都列入 Task 18 的範圍。
+
 ## Self-Review
 
 **Spec coverage** — 規格各節對應的 task:知識迴圈 → Task 4/5/6/7;兩個知識庫 → Task 5;kg 安裝 → Task 5;讀取路徑 → Task 5;寫入三層 → Task 6(第 1 層)、Task 7(第 2 層)、Task 7 的 skill 內容(第 3 層);種子語料 → Task 4;manifest → Task 8;godot.md → Task 9;babylon.md → Task 10;asset-gen → Task 11–14;publish.py → Task 1/2;移除項目 → Task 3;GDScript 決策 → Task 9 的內容與 Task 3 刪掉舊比較文件;驗收方式 → Task 15。

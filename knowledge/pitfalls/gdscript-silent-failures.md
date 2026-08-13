@@ -1,5 +1,7 @@
 # GDScript 的靜默失敗
 
+> 「sort_custom 的 lambda 漏掉 return 會靜默回 null,排序變隨機,決定論當場崩潰。」
+
 GDScript 有兩類問題,危險程度差很多。型別推導失敗**會報錯**,只是煩;lambda 漏 return **不會報錯**,而且會摧毀決定論。先處理後者。
 
 ## 規則
