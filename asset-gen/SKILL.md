@@ -128,7 +128,7 @@ python ${ASSET_GEN_SKILL_DIR}/tools/asset_gen.py resume -o model.glb
 每個指令印 JSON 到 stdout(`{"ok": true, "path": "...", "cost_cents": 0}`),進度到 stderr。把 stderr 導到暫存檔、只在失敗時讀,保持 context 乾淨:
 
 ```bash
-_log=$(mktemp)
+_log=.asset-gen.log
 result=$(python ${ASSET_GEN_SKILL_DIR}/tools/sfx_gen.py post raw.wav -o out.wav 2>"$_log") || tail -20 "$_log"
 ```
 
