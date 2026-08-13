@@ -2,9 +2,9 @@
 
 Autonomous game development for Godot and Babylon.js with Claude Code — where each project starts with what the last one learned.
 
-A personal fork of [alex_erm/godogen](https://github.com/alex-erm/godogen). See [Differences from upstream](#differences-from-upstream).
+[繁體中文](README.zh-TW.md) | English
 
-[Watch the upstream demos](https://youtu.be/eUz19GROIpY) · [Prompts](docs/demo_prompts.md)
+A personal fork of [alex_erm/godogen](https://github.com/alex-erm/godogen). See [Differences from upstream](#differences-from-upstream).
 
 Describe a game. The agent builds it, generates assets, runs the engine, and proves the result — as a live game you watch and steer, or as a recorded video when you're not there.
 
@@ -23,12 +23,43 @@ Game repos are disposable. This one is not, so it holds the memory.
 
 Two knowledge bases, both mounted in every published repo:
 
-- **`craft.db`** lives here and carries what every game should already know — engine traps, toolchain traps, design principles. Seeded from [`knowledge/`](knowledge/), which is 16 entries and reviewable as plain markdown.
+- **`craft.db`** lives here and carries what every game should already know — engine traps, toolchain traps, design principles. Built from [`knowledge/`](knowledge/), which is 19 entries of reviewable markdown.
 - **`game.db`** lives in the game repo and accumulates that game's own findings.
 
-Writing back asks nothing of you. A hook reads the `踩到的坑` sections you were already putting in commit messages and files them as episodes; `/kg-harvest` later proposes the handful that generalise, and you approve or reject.
+Writing back asks nothing of you. `/kg-harvest` runs as a step of delivery and proposes the handful of lessons that generalise; you approve or reject. A commit hook catches anything you happened to write into a commit body.
 
-Requires [Multi-knowledgeGraph](https://github.com/ddwolfer/Multi-knowledgeGraph). Without it, publishing still works — the repo just has no memory.
+## Setting up on a new machine
+
+Cloning is not enough. **`craft.db` is not versioned** — `knowledge/*.md` is the source of truth and the database is its search index — so a fresh clone starts amnesic, and nothing tells you: publishing still succeeds and the agent still runs, it just knows nothing.
+
+```bash
+git clone https://github.com/ddwolfer/godogen
+cd godogen
+
+# 1. the knowledge engine (once per machine)
+git clone https://github.com/ddwolfer/Multi-knowledgeGraph D:/AI/kg
+cd D:/AI/kg && npm install && cd -
+
+# 2. build the index — imports, embeds, and prioritises in one go
+python scripts/bootstrap.py
+```
+
+`bootstrap.py` ends with a line like `Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized`. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
+
+Re-run it after editing `knowledge/`.
+
+Full prerequisites — Godot, Python, ffmpeg, the optional local asset services — are in [setup.md](setup.md).
+
+## Making a game
+
+```bash
+python publish.py --engine godot   --out ~/my-game
+python publish.py --engine babylon --out ~/my-game
+```
+
+`--force` wipes the target first. Then open Claude Code in that directory and describe the game you want.
+
+The published repo carries `CLAUDE.md`, a one-page engine guide, the asset skill, and wiring to both knowledge bases. Everything else — project scaffold, capture tooling — the agent builds from the guide.
 
 ## Source layout
 
@@ -38,6 +69,7 @@ Requires [Multi-knowledgeGraph](https://github.com/ddwolfer/Multi-knowledgeGraph
 - `asset-gen/` — the asset-generation skill
 - `skills/` — additional skills installed into published repos
 - `hooks/` — the commit harvester
+- `scripts/` — `bootstrap.py`, `seed_priority.py`, publish internals
 - [publish.py](publish.py) — renders all of it for the chosen engine
 
 ## What the agent does
@@ -48,23 +80,12 @@ Requires [Multi-knowledgeGraph](https://github.com/ddwolfer/Multi-knowledgeGraph
 - **Proof over claims** — judged from the running game, never from a clean build. Five layers, ordered by what actually catches problems: your playthrough, the agent reading its own screenshots, measurement probes, tests, then deadlock checks.
 - **You choose your involvement** — steer a live game, or leave the run unattended and get a 15–20s proof recording. The agent takes its cue from how you frame the task.
 
-## Getting started
-
-See [setup.md](setup.md) for prerequisites. The short version: Godot 4 standard build, Python 3.11+, ffmpeg, and Node.js for the knowledge base.
-
-```bash
-python publish.py --engine godot   --out ~/my-game
-python publish.py --engine babylon --out ~/my-game
-```
-
-`--force` wipes the target first.
-
 ## Differences from upstream
 
 Windows-first, Godot-centric, and opinionated where upstream is deliberately not.
 
 - **Memory across projects.** Upstream ships no knowledge layer; a run's lessons die with the repo.
-- **GDScript, not C#.** Upstream switched to C# over GDScript's type-inference traps. Measured against a 1015-test GDScript project those cost about three minutes a day and never caused a runtime bug, while that day's real bugs were all things a compiler cannot catch. The guide documents the GDScript trap that does matter — a `sort_custom` lambda missing a return silently kills determinism.
+- **GDScript, not C#.** Upstream switched to C# over GDScript's type-inference traps. Measured against a 1015-test GDScript project those cost about three minutes a day and never caused a runtime bug, while that day's real bugs were all things a compiler cannot catch.
 - **Local assets first.** Upstream generates everything through paid APIs and ships no audio pipeline at all.
 - **An opinionated manifest.** Upstream's is eleven lines and says nothing about method. This one adds sim/render separation, the verification ladder, and two debugging rules — the failures that look like success.
 - **Engines** — Godot and Babylon.js. Bevy is dropped.
@@ -72,6 +93,12 @@ Windows-first, Godot-centric, and opinionated where upstream is deliberately not
 - **`publish.py` replaces `publish.sh`** — one implementation for Windows and POSIX, no `rsync`, `mktemp`, or `xvfb`.
 
 Documents in Chinese have been verified against real runs; documents in English are inherited from upstream and have not.
+
+## Known limitations
+
+- `auto-recall` matches by splitting on whitespace, so it misses Chinese prompts that contain no spaces. The other two injection hooks are unaffected.
+- The post-compaction budget is ten entries; `scripts/seed_priority.py` decides which ten.
+- The Babylon guide and its capture path are unverified on Windows.
 
 ## Development
 
