@@ -57,6 +57,9 @@ def _ace_home_for(settings: dict[str, str]) -> Path | None:
     if config.backend("ASSET_AUDIO", settings) != "ace":
         return None
     home = kgwire.find_ace_home()
+    shadowed = kgwire.external.ACE.shadow_warning()
+    if shadowed:
+        print(shadowed, file=sys.stderr)
     if home is None:
         print(kgwire.ACE_MISSING_WARNING, file=sys.stderr)
     return home

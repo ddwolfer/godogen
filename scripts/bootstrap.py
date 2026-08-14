@@ -111,6 +111,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     kg_home = Path(args.kg) if args.kg else kgwire.find_kg_home()
+    if not args.kg:
+        shadowed = kgwire.external.KG.shadow_warning()
+        if shadowed:
+            print(shadowed, file=sys.stderr)
     if kg_home is None:
         print(kgwire.KG_MISSING_WARNING.replace("warning:", "error:"), file=sys.stderr)
         return 1

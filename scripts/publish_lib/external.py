@@ -55,6 +55,26 @@ class Tool:
     def candidates(self) -> list[Path]:
         return [anchor / name for anchor in ANCHORS for name in self.dir_names]
 
+    def find_all(self, environ: dict[str, str] | None = None) -> list[Path]:
+        """Every installation on this machine, in search order.
+
+        More than one is worth saying out loud. The first wins, and the first
+        anchor is the godogen checkout -- so cloning a second copy into it
+        silently shadows the one the user already had, along with its
+        multi-hundred-megabyte model cache. Nothing else would surface that:
+        the index builds fine against the new empty one.
+        """
+        environ = os.environ if environ is None else environ
+        override = environ.get(self.env_var)
+        if override:
+            path = Path(override)
+            return [path] if self.is_installed(path) else []
+        seen: list[Path] = []
+        for candidate in self.candidates():
+            if self.is_installed(candidate) and candidate not in seen:
+                seen.append(candidate)
+        return seen
+
     def find(self, environ: dict[str, str] | None = None) -> Path | None:
         environ = os.environ if environ is None else environ
 
@@ -72,6 +92,19 @@ class Tool:
             if self.is_installed(candidate):
                 return candidate
         return None
+
+    def shadow_warning(self, environ: dict[str, str] | None = None) -> str | None:
+        """A note when more than one installation exists, or None."""
+        found = self.find_all(environ)
+        if len(found) < 2:
+            return None
+        shadowed = "\n".join(f"           {p}" for p in found[1:])
+        return (
+            f"note: {len(found)} {self.name} installations found. Using:\n"
+            f"           {found[0]}\n"
+            f"         Ignoring:\n{shadowed}\n"
+            f"         Set {self.env_var} to choose deliberately."
+        )
 
     def missing_message(self) -> str:
         return (
