@@ -50,13 +50,13 @@ The point of this fork: what one game learns, the next one starts with.
 Without it, every project begins from zero.
 
 ```
-git clone https://github.com/ddwolfer/Multi-knowledgeGraph D:\AI\kg
-cd D:\AI\kg && npm install
+git clone https://github.com/ddwolfer/Multi-knowledgeGraph <kg>
+cd <kg> && npm install
 ```
 
 Needs Node.js 22.12+. First run downloads a ~560MB embedding model, once.
 
-`publish.py` looks for it at `GODOGEN_KG_HOME`, then `D:\AI\kg`, then a `kg/`
+`publish.py` looks for it at `GODOGEN_KG_HOME`, then `<kg>`, then a `kg/`
 folder beside this checkout. Publishing still works without it — it prints a
 warning and produces a repo with no memory.
 
@@ -64,8 +64,8 @@ Import the seed corpus into the shared craft database. Three steps, none of
 them optional:
 
 ```
-node D:\AI\kg\scripts\import-skills.js D:\AI\godogen\knowledge --db D:\AI\godogen\craft.db
-node D:\AI\kg\scripts\backfill-embeddings.js --db D:\AI\godogen\craft.db
+node <kg>\scripts\import-skills.js knowledge --db craft.db
+node <kg>\scripts\backfill-embeddings.js --db craft.db
 python scripts\seed_priority.py --db craft.db
 ```
 
@@ -82,8 +82,8 @@ principle, leaving traps and no method. Re-run it after every import.
 Verify -- do not trust the import's own reporting:
 
 ```
-cd D:\AI\kg
-node -e "const D=require('better-sqlite3'),V=require('sqlite-vec');const db=new D('D:/AI/godogen/craft.db',{readonly:true});V.load(db);console.log('nodes',db.prepare('SELECT count(*) c FROM nodes').get().c,'vec',db.prepare('SELECT count(*) c FROM vec_nodes').get().c)"
+cd <kg>
+node -e "const D=require('better-sqlite3'),V=require('sqlite-vec');const db=new D('craft.db',{readonly:true});V.load(db);console.log('nodes',db.prepare('SELECT count(*) c FROM nodes').get().c,'vec',db.prepare('SELECT count(*) c FROM vec_nodes').get().c)"
 ```
 
 Both numbers must match. `vec 0` means the backfill did not run.

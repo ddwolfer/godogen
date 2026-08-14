@@ -24,7 +24,7 @@ import tempfile
 from pathlib import Path
 
 from scripts import generate_codex_metadata
-from scripts.publish_lib import kgwire, layout
+from scripts.publish_lib import config, kgwire, layout
 
 REPO_ROOT = Path(__file__).resolve().parent
 
@@ -133,7 +133,9 @@ def publish(
 ) -> Path:
     """Render the runtime layout for `engine` into `out`. Returns the target path."""
     tokens_manifest = layout.manifest_tokens(engine, agent)  # raises on unknown
-    tokens_skill = layout.skill_tokens(engine, agent, godogen_root=str(REPO_ROOT))
+    tokens_skill = layout.skill_tokens(
+        engine, agent, godogen_root=str(REPO_ROOT), asset_backends=config.describe()
+    )
     manifest_name = layout.manifest_file(agent)
     skills_rel = layout.skills_dir(agent)
 

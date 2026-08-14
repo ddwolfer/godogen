@@ -35,20 +35,41 @@ Cloning is not enough. **`craft.db` is not versioned** — `knowledge/*.md` is t
 ```bash
 git clone https://github.com/ddwolfer/godogen
 cd godogen
+```
 
-# 1. the knowledge engine (once per machine)
-git clone https://github.com/ddwolfer/Multi-knowledgeGraph D:/AI/kg
-cd D:/AI/kg && npm install && cd -
+Then open Claude Code or Codex here and ask **how do I start**. The `setup` skill detects what is already installed, asks only what it cannot detect — which asset backends you want — writes `.env`, and builds the index.
 
-# 2. build the index — imports, embeds, and prioritises in one go
+Doing it by hand instead:
+
+```bash
+# the knowledge engine, once per machine
+git clone https://github.com/ddwolfer/Multi-knowledgeGraph kg
+cd kg && npm install && cd ..
+
+# imports, embeds, and prioritises in one go
+cp .env.example .env      # then edit it
 python scripts/bootstrap.py
 ```
+
+`kg/` is gitignored, so cloning it inside the checkout is fine; `../kg` and `~/.godogen/kg` are also searched, and `GODOGEN_KG_HOME` overrides all of them.
 
 `bootstrap.py` ends with a line like `Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized`. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
 
 Re-run it after editing `knowledge/`.
 
 Full prerequisites — Godot, Python, ffmpeg, the optional local asset services — are in [setup.md](setup.md).
+
+### Asset backends
+
+Three independent choices in `.env`, because they are independent: procedural models in Blender alongside cloud image generation is a normal setup.
+
+| | options |
+|---|---|
+| `ASSET_3D` | `blender` (local, free) · `tripo3d` (~30–60¢ each) · `none` |
+| `ASSET_2D` | `comfyui` (local, free) · `gemini` (5–15¢) · `grok` (2¢) · `none` |
+| `ASSET_AUDIO` | `local` (free) · `none` |
+
+The choice is baked into the published repo's asset skill, so the agent does not have to guess which pipeline this project uses.
 
 ## Making a game
 

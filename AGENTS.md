@@ -14,6 +14,15 @@ This repository is not a published game repo. It is the source that `publish.py`
 - `scripts/publish_lib/` — pure publish decisions (`layout.py`, `kgwire.py`), kept free of disk access so they stay testable
 - `tests/` — pytest suite; run with `python -m pytest tests/ -v`
 
+## When Someone Asks How To Start
+
+Run the `setup` skill in `skills/setup/`. Do not walk them through it by hand.
+
+A fresh clone is amnesic and nothing says so: `craft.db` is not versioned, so
+publishing succeeds and the agent runs while knowing nothing. The skill
+detects what is already installed, asks only about asset-backend preference,
+writes `.env`, builds the index, and verifies before claiming success.
+
 ## Editing Rules
 
 - Do not create or maintain `.claude/skills/` or `.agents/skills/` in this source repo.

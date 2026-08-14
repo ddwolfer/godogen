@@ -31,14 +31,34 @@ def test_env_override_wins(tmp_path: Path):
     assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(kg)}) == kg
 
 
-def test_missing_kg_returns_none(tmp_path: Path, no_installed_kg):
-    assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(tmp_path / "nope")}) is None
+def test_no_kg_anywhere_returns_none(no_installed_kg):
+    assert kgwire.find_kg_home({}) is None
 
 
-def test_directory_without_main_js_is_not_kg(tmp_path: Path, no_installed_kg):
+def test_a_wrong_override_is_an_error_not_a_fallback(tmp_path: Path):
+    """Quietly using a different installation than the one asked for is how a
+    game repo ends up wired to a knowledge base nobody meant to pick."""
+    with pytest.raises(kgwire.KgNotFound):
+        kgwire.find_kg_home({"GODOGEN_KG_HOME": str(tmp_path / "nope")})
+
+
+def test_directory_without_main_js_is_not_kg(tmp_path: Path):
     bare = tmp_path / "kg"
     bare.mkdir()
-    assert kgwire.find_kg_home({"GODOGEN_KG_HOME": str(bare)}) is None
+    with pytest.raises(kgwire.KgNotFound):
+        kgwire.find_kg_home({"GODOGEN_KG_HOME": str(bare)})
+
+
+def test_default_search_paths_are_derived_not_hardcoded():
+    """A literal path only works on the machine it was written on. Every
+    candidate must be anchored to the checkout or to the home directory --
+    a sibling of the checkout counts, a drive letter does not."""
+    root = Path(kgwire.__file__).resolve().parents[2]
+    anchors = (root, root.parent, Path.home())
+    for candidate in kgwire.DEFAULT_KG_PATHS:
+        assert any(candidate.is_relative_to(a) for a in anchors), (
+            f"{candidate} is anchored to nothing this repo knows about"
+        )
 
 
 def test_fallback_paths_are_searched_when_env_is_unset(tmp_path: Path, monkeypatch):

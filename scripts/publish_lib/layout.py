@@ -68,6 +68,7 @@ _SKILL_COMMANDS = {
     "ASSET_SKILL_COMMAND": "asset-gen",
     "KG_HARVEST_COMMAND": "kg-harvest",
     "GAME_DESIGN_COMMAND": "game-design",
+    "SETUP_COMMAND": "setup",
 }
 
 
@@ -98,9 +99,17 @@ def manifest_tokens(engine: str, agent: str = "claude") -> dict[str, str]:
 
 
 def skill_tokens(
-    engine: str, agent: str = "claude", godogen_root: str = ""
+    engine: str,
+    agent: str = "claude",
+    godogen_root: str = "",
+    asset_backends: str = "",
 ) -> dict[str, str]:
-    """Tokens substituted into the installed skill tree."""
+    """Tokens substituted into the installed skill tree.
+
+    `asset_backends` is resolved from .env by the caller and baked in, so a
+    published repo knows which pipeline this project uses without needing to
+    read godogen's configuration at runtime.
+    """
     _check(engine)
     _check_agent(agent)
     return {
@@ -109,6 +118,7 @@ def skill_tokens(
         "ASSET_GEN_SKILL_DIR": f"{AGENTS[agent]['skills_dir']}/asset-gen",
         "GODOGEN_ROOT": godogen_root,
         "RUNTIME_ASSET_DIR": _RUNTIME_ASSET_DIR[engine],
+        "ASSET_BACKENDS": asset_backends,
     }
 
 

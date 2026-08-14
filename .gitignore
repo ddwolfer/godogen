@@ -5,8 +5,11 @@
 .playwright
 **/__pycache__
 .pytest_cache/
+.env
 craft.db
 craft.db-shm
 craft.db-wal
+# The knowledge engine, if cloned inside the checkout rather than beside it.
+/kg/
 godot/skills/godot-api/doc_api/
 godot/skills/godot-api/doc_source/

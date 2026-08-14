@@ -28,46 +28,63 @@ INJECTING_HOOKS = {
 
 HOOK_TIMEOUT_S = 10
 
-# Every location searched when GODOGEN_KG_HOME is unset. Kept as one constant
-# so a test can empty it -- otherwise "no kg installed" tests pass only on
-# machines that happen not to have one, which is not a test.
+_GODOGEN_ROOT = Path(__file__).resolve().parents[2]
+
+# Searched in order when GODOGEN_KG_HOME is unset. All relative to the godogen
+# checkout or the home directory -- an absolute path here would only work on
+# the machine it was written on. Kept as one constant so a test can empty it;
+# otherwise "no kg installed" tests pass only on machines that happen not to
+# have one, which is not a test.
 DEFAULT_KG_PATHS = (
-    Path("D:/AI/kg"),
-    Path(__file__).resolve().parents[2].parent / "kg",  # sibling of the checkout
+    _GODOGEN_ROOT / "kg",           # inside the checkout (gitignored)
+    _GODOGEN_ROOT.parent / "kg",    # beside the checkout
+    Path.home() / ".godogen" / "kg",
 )
 
 KG_MISSING_WARNING = (
     "warning: no kg installation found -- publishing without knowledge wiring.\n"
     "         The game repo will work, but it starts and stays amnesic.\n"
-    "         Install https://github.com/ddwolfer/Multi-knowledgeGraph and set\n"
-    "         GODOGEN_KG_HOME, or place it at D:/AI/kg."
+    "         Fix with:\n"
+    "           git clone https://github.com/ddwolfer/Multi-knowledgeGraph kg\n"
+    "           cd kg && npm install\n"
+    "         from the godogen checkout, or set GODOGEN_KG_HOME to an existing one."
 )
 
 
-def _looks_like_kg(path: Path) -> bool:
-    return (path / "main.js").is_file() and (path / "hooks").is_dir()
+class KgNotFound(Exception):
+    """GODOGEN_KG_HOME was set but does not point at a kg installation."""
+
+
+def _is_kg(path: Path) -> bool:
+    try:
+        return (path / "main.js").is_file() and (path / "hooks").is_dir()
+    except OSError:
+        return False
 
 
 def find_kg_home(env: dict[str, str] | None = None) -> Path | None:
     """Locate the shared kg installation, or None.
 
-    Order: GODOGEN_KG_HOME, then the conventional locations, then a sibling
-    `kg/` next to the godogen checkout.
+    GODOGEN_KG_HOME is authoritative: if it is set and wrong, that is an
+    error, not a reason to quietly use a different installation somewhere
+    else. Silently ignoring an explicit choice is how you end up wiring a
+    game repo to a knowledge base you did not mean.
     """
     env = os.environ if env is None else env
 
-    candidates: list[Path] = []
     override = env.get("GODOGEN_KG_HOME")
     if override:
-        candidates.append(Path(override))
-    candidates.extend(DEFAULT_KG_PATHS)
+        path = Path(override)
+        if not _is_kg(path):
+            raise KgNotFound(
+                f"GODOGEN_KG_HOME={override} is not a kg installation "
+                "(expected main.js and hooks/ inside it)"
+            )
+        return path
 
-    for candidate in candidates:
-        try:
-            if candidate.is_dir() and _looks_like_kg(candidate):
-                return candidate
-        except OSError:
-            continue
+    for candidate in DEFAULT_KG_PATHS:
+        if _is_kg(candidate):
+            return candidate
     return None
 
 

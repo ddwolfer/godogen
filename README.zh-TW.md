@@ -37,14 +37,39 @@ Fork 自 [alex_erm/godogen](https://github.com/alex-erm/godogen),見[與上游�
 ```bash
 git clone https://github.com/ddwolfer/godogen
 cd godogen
+```
 
-# 1. 知識引擎(每台機器裝一次)
-git clone https://github.com/ddwolfer/Multi-knowledgeGraph D:/AI/kg
-cd D:/AI/kg && npm install && cd -
+然後在這個目錄開 Claude Code 或 Codex,問一句 **「我要怎麼開始?」**。
 
-# 2. 建索引 —— 匯入、產生向量、排注入優先權,一次做完
+`setup` skill 會**先去偵測**你機器上已經有什麼(Godot、Blender、ComfyUI、kg……),只問它查不到的事 —— 主要就一題:**素材要用哪些後端**。然後幫你寫 `.env`、建好索引、並驗證過才說完成。
+
+要手動做的話:
+
+```bash
+# 知識引擎,每台機器一次
+git clone https://github.com/ddwolfer/Multi-knowledgeGraph kg
+cd kg && npm install && cd ..
+
+# 匯入、產生向量、排注入優先權,一次做完
+cp .env.example .env      # 然後編輯它
 python scripts/bootstrap.py
 ```
+
+`kg/` 已經在 `.gitignore` 裡,所以直接 clone 在 checkout 內就好;`../kg` 和 `~/.godogen/kg` 也會被搜尋,`GODOGEN_KG_HOME` 可以覆寫全部。
+
+### 素材後端(三軸獨立)
+
+寫在 `.env` 裡。三軸分開是因為它們本來就獨立 —— **用雲端出圖配本地 Blender 建模是正常組合**:
+
+| | 選項 |
+|---|---|
+| `ASSET_3D` | `blender` 程式化(本地、免費)· `tripo3d`(約 30–60¢/個)· `none` |
+| `ASSET_2D` | `comfyui`(本地、免費)· `gemini`(5–15¢/張,精準)· `grok`(2¢/張)· `none` |
+| `ASSET_AUDIO` | `local`(免費)· `none` |
+
+這個選擇會在 publish 時**烘進遊戲 repo 的素材 skill**,agent 不用猜這個專案該用哪條管線。
+
+`none` 是正當選項 —— 只想先做玩法、美術之後再說完全合理。
 
 跑完最後一行會像這樣:
 
