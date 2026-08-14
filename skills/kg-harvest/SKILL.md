@@ -78,6 +78,8 @@ commit message 是寫給 diff 的:它記錄你改了什麼。交付報告是寫�
 2. 在 godogen 那邊 commit,message 說明這條來自哪個專案的哪個 commit
 3. 重新匯入 `craft.db`,否則新條目不會被檢索到:
    ```
+   # 匯入器是 insert-only,不先清會把整份語料變成兩份。
+   sqlite3 "${GODOGEN_ROOT}/craft.db" "DELETE FROM fts_nodes; DELETE FROM nodes;"
    node "<kg>/scripts/import-skills.js" --db "${GODOGEN_ROOT}/craft.db" "${GODOGEN_ROOT}/knowledge"
    ```
 4. 匯入後確認 `trust` 是 `principle` —— `post-compact` hook 只注入 `trust = 'principle'` 的節點,設錯的話壓縮後注入會是空的
