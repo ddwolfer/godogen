@@ -48,19 +48,40 @@ Godot 的 Windows 執行檔是 **GUI 子系統程式**,所以:直接呼叫不會
 import subprocess, sys
 from pathlib import Path
 
+def _decode(raw: bytes) -> str:
+    """Godot writes console output in the system ANSI codepage on Windows
+    (cp950 here), even through a pipe. Decoding it as UTF-8 turns every
+    non-ASCII name into mojibake, so try UTF-8 first and fall back."""
+    if not raw:
+        return ""
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    for enc in ("cp950", "mbcs"):
+        try:
+            return raw.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
 def run_godot(args, timeout=120):
     """GUI-subsystem exe: capture both streams, and never wait forever."""
     try:
-        p = subprocess.run(
-            [GODOT, *args], capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=timeout,
-        )
+        p = subprocess.run([GODOT, *args], capture_output=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return 1, "", f"timed out after {timeout}s (parse error hangs the exe)"
-    return p.returncode, p.stdout, p.stderr
+    return p.returncode, _decode(p.stdout), _decode(p.stderr)
+
+# Your own stdout defaults to the local codepage when redirected.
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
 ```
 
-寫檔一律 `encoding="utf-8"`,不帶 BOM —— Windows 的預設 locale 是 cp950,會吃掉中文。
+**不要在 `subprocess.run` 上加 `text=True, encoding="utf-8"`** —— 那會把 Godot 印出來的中文全部變成亂碼。方向剛好相反:**寫檔一律強制 `encoding="utf-8"`、不帶 BOM;讀子行程輸出不能強制 UTF-8。** Windows 的預設 locale 是 cp950。
+
+**新增任何 `class_name` 檔案之後要先跑一次 `--import`。** 全域類別註冊來自 import 產生的快取,不是掃原始碼 —— 少了這一步,`--script` 會對每個 `class_name` 報 `Could not find type X`,而那是 parse error,exe 會直接掛住。
 
 ## 驗收四件工具
 
