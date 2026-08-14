@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import struct
 import sys
 import urllib.error
@@ -180,6 +181,78 @@ def process(
     }
 
 
+def find_library(home: str | None = None) -> Path | None:
+    """Locate ACE Studio's library index.
+
+    The library carries across projects: sounds made for one game are usually
+    right for the next. Searching it before generating is the whole point --
+    generation is free in money but not in time, and a library entry is one
+    you have already listened to.
+    """
+    roots = [Path(home)] if home else []
+    if not home:
+        env = os.environ.get("ACE_STUDIO_HOME")
+        if env:
+            roots.append(Path(env))
+        here = Path.cwd()
+        roots += [here / "ACE_Studio", here.parent / "ACE_Studio",
+                  Path.home() / ".godogen" / "ACE_Studio"]
+    for root in roots:
+        index = root / "library" / "library.json"
+        if index.is_file():
+            return index
+    return None
+
+
+def _items_of(data) -> list[dict]:
+    """Pull the item list out of a library index.
+
+    The index is `{"items": [...]}` today. Accepting a bare list and a
+    dict-of-items too costs three lines and means a format change downgrades
+    to fewer results instead of silently zero -- which is exactly how the
+    first version of this failed.
+    """
+    if isinstance(data, list):
+        return data
+    if not isinstance(data, dict):
+        return []
+    for value in data.values():
+        if isinstance(value, list) and any(isinstance(v, dict) for v in value):
+            return value
+    return [v for v in data.values() if isinstance(v, dict)]
+
+
+def search_library(index: Path | str, query: str = "", kind: str = "") -> list[dict]:
+    """Match a query against captions and titles. Substring, not semantic --
+    the agent reading the result can judge relevance better than a score can."""
+    items = _items_of(json.loads(Path(index).read_text(encoding="utf-8")))
+
+    needle = query.lower().strip()
+    found = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if kind and item.get("type") != kind:
+            continue
+        haystack = " ".join(
+            str(item.get(field, ""))
+            for field in ("title", "base", "finalCaption", "extra")
+        ).lower()
+        if needle and needle not in haystack:
+            continue
+        found.append(
+            {
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "type": item.get("type"),
+                "seconds": item.get("durationSec"),
+                "caption": item.get("finalCaption") or item.get("base"),
+                "path": item.get("audioPath"),
+            }
+        )
+    return found
+
+
 def generate(prompt: str, dest: Path | str, duration: float, seed: int, steps: int,
              endpoint: str = DEFAULT_ENDPOINT, timeout: int = 300) -> Path:
     """POST to the local SFX engine and save the raw result."""
@@ -214,6 +287,11 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--seconds", type=float, default=SHORT_SECONDS)
     gen.add_argument("--raw", action="store_true", help="skip post-processing")
 
+    lib = sub.add_parser("library", help="search the ACE Studio library first")
+    lib.add_argument("--query", default="", help="substring of title or caption")
+    lib.add_argument("--kind", default="", choices=["", "sfx", "bgm"])
+    lib.add_argument("--home", default=None, help="ACE Studio checkout")
+
     post = sub.add_parser("post", help="post-process an existing wav")
     post.add_argument("src")
     post.add_argument("-o", "--out", required=True)
@@ -223,6 +301,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "library":
+            index = find_library(args.home)
+            if index is None:
+                raise RuntimeError(
+                    "ACE Studio library not found -- set ACE_STUDIO_HOME"
+                )
+            found = search_library(index, args.query, args.kind)
+            print(json.dumps({"ok": True, "count": len(found), "items": found},
+                             ensure_ascii=False, indent=2))
+            return 0
         if args.command == "generate":
             raw = generate(
                 args.prompt, args.out, args.duration, args.seed, args.steps, args.endpoint

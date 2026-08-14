@@ -52,7 +52,19 @@ def _write_json(path: Path, data: dict) -> None:
     _write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
-def _wire_knowledge(target: Path, kg_home: Path | None, agent: str) -> None:
+def _ace_home_for(settings: dict[str, str]) -> Path | None:
+    """ACE Studio is wired only when it is the chosen audio backend."""
+    if config.backend("ASSET_AUDIO", settings) != "ace":
+        return None
+    home = kgwire.find_ace_home()
+    if home is None:
+        print(kgwire.ACE_MISSING_WARNING, file=sys.stderr)
+    return home
+
+
+def _wire_knowledge(
+    target: Path, kg_home: Path | None, agent: str, ace_home: Path | None = None
+) -> None:
     """Point the game repo at the shared kg install and both knowledge bases.
 
     craft.db lives with godogen so every game reads the same accumulated
@@ -70,7 +82,7 @@ def _wire_knowledge(target: Path, kg_home: Path | None, agent: str) -> None:
     if agent == "codex":
         _write(
             target / ".codex" / "config.toml",
-            kgwire.codex_mcp_config(kg_home, craft_db, game_db),
+            kgwire.codex_mcp_config(kg_home, craft_db, game_db, ace_home),
         )
         _write_json(
             target / ".codex" / "hooks.json",
@@ -84,7 +96,10 @@ def _wire_knowledge(target: Path, kg_home: Path | None, agent: str) -> None:
             file=sys.stderr,
         )
     else:
-        _write_json(target / ".mcp.json", kgwire.mcp_config(kg_home, craft_db, game_db))
+        _write_json(
+            target / ".mcp.json",
+            kgwire.mcp_config(kg_home, craft_db, game_db, ace_home),
+        )
         _write_json(
             target / ".claude" / "settings.json",
             kgwire.hook_settings(kg_home, craft_db, game_db, harvest_script=harvest),
@@ -132,9 +147,10 @@ def publish(
     wire_knowledge: bool = True,
 ) -> Path:
     """Render the runtime layout for `engine` into `out`. Returns the target path."""
+    settings = config.load()
     tokens_manifest = layout.manifest_tokens(engine, agent)  # raises on unknown
     tokens_skill = layout.skill_tokens(
-        engine, agent, godogen_root=str(REPO_ROOT), asset_backends=config.describe()
+        engine, agent, godogen_root=str(REPO_ROOT), asset_backends=config.describe(settings)
     )
     manifest_name = layout.manifest_file(agent)
     skills_rel = layout.skills_dir(agent)
@@ -179,7 +195,10 @@ def publish(
     # --- Knowledge: the shared kg install and both databases ---
     if wire_knowledge:
         _wire_knowledge(
-            target, kg_home if kg_home is not None else kgwire.find_kg_home(), agent
+            target,
+            kg_home if kg_home is not None else kgwire.find_kg_home(),
+            agent,
+            ace_home=_ace_home_for(settings),
         )
 
     # --- .gitignore (published instruction files are regenerated) ---

@@ -10,8 +10,9 @@ Config generation only. Nothing here touches a database.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
+
+from . import external
 
 # Hooks that inject knowledge into context. Each runs once per database.
 INJECTING_HOOKS = {
@@ -28,81 +29,48 @@ INJECTING_HOOKS = {
 
 HOOK_TIMEOUT_S = 10
 
-_GODOGEN_ROOT = Path(__file__).resolve().parents[2]
-
-# Searched in order when GODOGEN_KG_HOME is unset. All relative to the godogen
-# checkout or the home directory -- an absolute path here would only work on
-# the machine it was written on. Kept as one constant so a test can empty it;
-# otherwise "no kg installed" tests pass only on machines that happen not to
-# have one, which is not a test.
-DEFAULT_KG_PATHS = (
-    _GODOGEN_ROOT / "kg",           # inside the checkout (gitignored)
-    _GODOGEN_ROOT.parent / "kg",    # beside the checkout
-    Path.home() / ".godogen" / "kg",
-)
-
-KG_MISSING_WARNING = (
-    "warning: no kg installation found -- publishing without knowledge wiring.\n"
-    "         The game repo will work, but it starts and stays amnesic.\n"
-    "         Fix with:\n"
-    "           git clone https://github.com/ddwolfer/Multi-knowledgeGraph kg\n"
-    "           cd kg && npm install\n"
-    "         from the godogen checkout, or set GODOGEN_KG_HOME to an existing one."
-)
-
-
-class KgNotFound(Exception):
-    """GODOGEN_KG_HOME was set but does not point at a kg installation."""
-
-
-def _is_kg(path: Path) -> bool:
-    try:
-        return (path / "main.js").is_file() and (path / "hooks").is_dir()
-    except OSError:
-        return False
+# Both external services resolve the same way -- see external.py.
+KgNotFound = external.NotFound
+KG_MISSING_WARNING = external.KG.missing_message()
+ACE_MISSING_WARNING = external.ACE.missing_message()
 
 
 def find_kg_home(env: dict[str, str] | None = None) -> Path | None:
-    """Locate the shared kg installation, or None.
+    """Locate the shared kg installation, or None. See external.py."""
+    return external.KG.find(env)
 
-    GODOGEN_KG_HOME is authoritative: if it is set and wrong, that is an
-    error, not a reason to quietly use a different installation somewhere
-    else. Silently ignoring an explicit choice is how you end up wiring a
-    game repo to a knowledge base you did not mean.
+
+def find_ace_home(env: dict[str, str] | None = None) -> Path | None:
+    """Locate the ACE Studio installation, or None."""
+    return external.ACE.find(env)
+
+
+def _ace_entry(ace_home: Path) -> str:
+    return str((Path(ace_home) / "mcp-server" / "index.mjs").resolve())
+
+
+def mcp_config(
+    kg_home: Path, craft_db: Path, game_db: Path, ace_home: Path | None = None
+) -> dict:
+    """One MCP server per knowledge base, plus the audio studio when present.
+
+    ACE Studio already speaks MCP, so the agent gets typed tools -- generate,
+    and crucially list_library -- instead of a script shelling out over HTTP.
     """
-    env = os.environ if env is None else env
-
-    override = env.get("GODOGEN_KG_HOME")
-    if override:
-        path = Path(override)
-        if not _is_kg(path):
-            raise KgNotFound(
-                f"GODOGEN_KG_HOME={override} is not a kg installation "
-                "(expected main.js and hooks/ inside it)"
-            )
-        return path
-
-    for candidate in DEFAULT_KG_PATHS:
-        if _is_kg(candidate):
-            return candidate
-    return None
-
-
-def mcp_config(kg_home: Path, craft_db: Path, game_db: Path) -> dict:
-    """Two MCP server instances, one per knowledge base."""
     main = str((kg_home / "main.js").resolve())
-    return {
-        "mcpServers": {
-            "kg-craft": {
-                "command": "node",
-                "args": [main, "--db", str(Path(craft_db).resolve())],
-            },
-            "kg-game": {
-                "command": "node",
-                "args": [main, "--db", str(Path(game_db).resolve())],
-            },
-        }
+    servers = {
+        "kg-craft": {
+            "command": "node",
+            "args": [main, "--db", str(Path(craft_db).resolve())],
+        },
+        "kg-game": {
+            "command": "node",
+            "args": [main, "--db", str(Path(game_db).resolve())],
+        },
     }
+    if ace_home is not None:
+        servers["ace-studio"] = {"command": "node", "args": [_ace_entry(ace_home)]}
+    return {"mcpServers": servers}
 
 
 def hook_settings(
@@ -183,15 +151,22 @@ def _toml_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def codex_mcp_config(kg_home: Path, craft_db: Path, game_db: Path) -> str:
-    """`.codex/config.toml` -- one [mcp_servers.<name>] table per database."""
+def codex_mcp_config(
+    kg_home: Path, craft_db: Path, game_db: Path, ace_home: Path | None = None
+) -> str:
+    """`.codex/config.toml` -- one [mcp_servers.<name>] table per server."""
     main = str((kg_home / "main.js").resolve())
+    entries: list[tuple[str, list[str]]] = [
+        ("kg-craft", [main, "--db", str(Path(craft_db).resolve())]),
+        ("kg-game", [main, "--db", str(Path(game_db).resolve())]),
+    ]
+    if ace_home is not None:
+        entries.append(("ace-studio", [_ace_entry(ace_home)]))
+
     blocks = []
-    for name, db in (("kg-craft", craft_db), ("kg-game", game_db)):
-        args = ", ".join(
-            _toml_string(a) for a in (main, "--db", str(Path(db).resolve()))
-        )
-        blocks.append(f"[mcp_servers.{name}]\ncommand = \"node\"\nargs = [{args}]\n")
+    for name, args in entries:
+        rendered = ", ".join(_toml_string(a) for a in args)
+        blocks.append(f"[mcp_servers.{name}]\ncommand = \"node\"\nargs = [{rendered}]\n")
     return "\n".join(blocks)
 
 

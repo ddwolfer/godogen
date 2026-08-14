@@ -56,7 +56,29 @@ workflow 裡有兩個 `CLIPTextEncode` 時,工具會**拒絕猜測**哪個是正
 
 8GB VRAM 用 Flux 12 步就夠。
 
-## 音效 — 本地引擎
+## 音效 — 先查庫,再生成
+
+**生成之前一定要先查 ACE Studio 的作品庫。**
+
+那個庫是**跨專案累積**的 —— 上一個遊戲做的腳步聲、UI 點擊、金屬撞擊,這個遊戲多半直接能用。而且庫裡的每一個音都是你已經聽過、確認可用的;新生的沒有。生成不花錢,但花時間(第一次載模型要 10–30 秒),而且要重新判斷好不好。
+
+ACE Studio 掛成 MCP server,所以你有這些工具:`studio_status`(服務健康)、`list_library`(列出全部)、`generate_sfx`、`generate_bgm`、`remove_item`。
+
+庫大的時候用腳本篩比較省 context:
+
+```bash
+python ${ASSET_GEN_SKILL_DIR}/tools/sfx_gen.py library --query "footstep" --kind sfx
+```
+
+**找到可用的就直接後處理進遊戲**,不要重生:
+
+```bash
+python ${ASSET_GEN_SKILL_DIR}/tools/sfx_gen.py post "<庫裡的 path>" -o ${RUNTIME_ASSET_DIR}/sfx/step.wav
+```
+
+這一步不能跳過 —— 庫裡的音是**通用**的,`post` 才會把它裁到遊戲要的長度、對齊**這個遊戲**其他音效的音量。ACE 自己只做去靜音,它不知道你這個遊戲多大聲。
+
+## 音效 — 庫裡沒有才生成
 
 ```bash
 python ${ASSET_GEN_SKILL_DIR}/tools/sfx_gen.py generate \

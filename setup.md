@@ -100,9 +100,17 @@ if it is not on `PATH` or in a conventional install location.
 working workflow in **API format** and keep it as a template. Flux at 12 steps
 fits in 8GB VRAM.
 
-**A local audio model** — sound effects over HTTP at `127.0.0.1:8002`,
-accepting `{prompt, duration, seed, steps}` and returning `{raw_path}`.
-Point `sfx_gen.py --endpoint` elsewhere if yours differs.
+**[ACE Studio](https://github.com/ddwolfer/ACE_Studio)** — music and sound
+effects, generated locally and kept in a library that carries across projects.
+Wired as an MCP server, so the agent gets `list_library` and the generators as
+tools rather than shelling out over HTTP. Found at `<godogen>/ACE_Studio`,
+`../ACE_Studio` or `~/.godogen/ACE_Studio`, or set `ACE_STUDIO_HOME`.
+
+Its library is the audio equivalent of `craft.db`: search it before generating.
+`sfx_gen.py library --query footstep` filters it without pulling everything
+into context, and `sfx_gen.py post <path> -o ...` fits an existing sound to
+this game — ACE trims silence, but only godogen knows how loud the rest of
+this game is.
 
 ## Optional — Babylon.js
 

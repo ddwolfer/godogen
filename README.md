@@ -67,9 +67,13 @@ Three independent choices in `.env`, because they are independent: procedural mo
 |---|---|
 | `ASSET_3D` | `blender` (local, free) · `tripo3d` (~30–60¢ each) · `none` |
 | `ASSET_2D` | `comfyui` (local, free) · `gemini` (5–15¢) · `grok` (2¢) · `none` |
-| `ASSET_AUDIO` | `local` (free) · `none` |
+| `ASSET_AUDIO` | `ace` ([ACE Studio](https://github.com/ddwolfer/ACE_Studio), local, free) · `none` |
 
 The choice is baked into the published repo's asset skill, so the agent does not have to guess which pipeline this project uses.
+
+ACE Studio is wired as an MCP server, so the agent gets its tools directly — including `list_library`. **Its library is to sound what `craft.db` is to knowledge:** a store that outlives any one game. The skill's rule is to search it before generating, because a library entry is one you have already listened to.
+
+Like the knowledge engine, it is found by path rather than vendored — its models and its library are both outside git, so a submodule would hand you an empty shell. Searched at `<godogen>/ACE_Studio`, `../ACE_Studio` and `~/.godogen/ACE_Studio`, or set `ACE_STUDIO_HOME`.
 
 ## Making a game
 

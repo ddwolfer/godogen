@@ -65,9 +65,15 @@ python scripts/bootstrap.py
 |---|---|
 | `ASSET_3D` | `blender` 程式化(本地、免費)· `tripo3d`(約 30–60¢/個)· `none` |
 | `ASSET_2D` | `comfyui`(本地、免費)· `gemini`(5–15¢/張,精準)· `grok`(2¢/張)· `none` |
-| `ASSET_AUDIO` | `local`(免費)· `none` |
+| `ASSET_AUDIO` | `ace`([ACE Studio](https://github.com/ddwolfer/ACE_Studio),本地、免費)· `none` |
 
 這個選擇會在 publish 時**烘進遊戲 repo 的素材 skill**,agent 不用猜這個專案該用哪條管線。
+
+ACE Studio 是掛成 **MCP server**,所以 agent 直接拿得到它的工具,包含 `list_library`。
+
+**它的作品庫之於音效,就是 `craft.db` 之於知識** —— 跨專案累積的store。skill 的規則是**生成前先查庫**:庫裡的每一個音都是你已經聽過、確認可用的,新生的沒有。
+
+跟知識引擎一樣是**靠路徑找**而不是 vendored —— 它的模型和作品庫都在 git 之外,submodule 只會給你一個空殼。搜尋 `<godogen>/ACE_Studio`、`../ACE_Studio`、`~/.godogen/ACE_Studio`,或設 `ACE_STUDIO_HOME`。
 
 `none` 是正當選項 —— 只想先做玩法、美術之後再說完全合理。
 

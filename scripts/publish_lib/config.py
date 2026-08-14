@@ -23,7 +23,7 @@ ENV_FILE = REPO_ROOT / ".env"
 BACKENDS: dict[str, tuple[str, ...]] = {
     "ASSET_3D": ("blender", "tripo3d", "none"),
     "ASSET_2D": ("comfyui", "gemini", "grok", "none"),
-    "ASSET_AUDIO": ("local", "none"),
+    "ASSET_AUDIO": ("ace", "none"),
 }
 
 # What each backend needs before it can work. Checked by /setup, not enforced
@@ -34,11 +34,11 @@ REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "comfyui": ("COMFYUI_URL",),
     "gemini": ("GOOGLE_API_KEY",),
     "grok": ("XAI_API_KEY",),
-    "local": ("SFX_ENDPOINT",),
+    "ace": (),  # located by path, see external.py
     "none": (),
 }
 
-_LOCAL = {"blender", "comfyui", "local"}
+_LOCAL = {"blender", "comfyui", "ace"}
 
 _LABELS = {
     "blender": "Blender procedural (local, free)",
@@ -46,7 +46,7 @@ _LABELS = {
     "comfyui": "ComfyUI (local, free)",
     "gemini": "Gemini (cloud, paid)",
     "grok": "Grok (cloud, paid)",
-    "local": "local audio model (free)",
+    "ace": "ACE Studio (local, free, reuses its library)",
     "none": "not used",
 }
 
@@ -78,6 +78,7 @@ def load(env_file: Path | None = None, environ: dict[str, str] | None = None) ->
     environ = os.environ if environ is None else environ
     for key in list(BACKENDS) + [k for reqs in REQUIREMENTS.values() for k in reqs] + [
         "GODOGEN_KG_HOME",
+        "ACE_STUDIO_HOME",
         "GODOT_PATH",
     ]:
         if environ.get(key):

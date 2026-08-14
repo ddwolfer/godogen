@@ -36,7 +36,7 @@ description: |
 | kg | `<godogen>/kg`、`<godogen>/../kg`、`~/.godogen/kg`,看有沒有 `main.js` 與 `hooks/` |
 | Blender | `blender --version`;Windows 上找 Steam 與 Program Files |
 | ComfyUI | `GET <COMFYUI_URL>/system_stats`,逾時 2 秒 |
-| 音效服務 | `SFX_ENDPOINT` 的主機通不通 |
+| ACE Studio | `<godogen>/ACE_Studio`、`../ACE_Studio`、`~/.godogen/ACE_Studio`,看有沒有 `mcp-server/` 與 `library/` |
 | 雲端金鑰 | 環境變數裡有沒有 `GOOGLE_API_KEY` / `XAI_API_KEY` / `TRIPO3D_API_KEY` |
 
 **把結果整理成一張表給使用者看。** 他要先知道自己站在哪裡。
@@ -49,7 +49,9 @@ description: |
 |---|---|
 | **3D 模型** | `blender` 程式化(免費、可重現、要裝 Blender)· `tripo3d` 圖轉模(約 30–60¢/個)· `none` |
 | **2D 圖** | `comfyui` 本地(免費、要 GPU)· `gemini`(5–15¢/張,精準)· `grok`(2¢/張,快但不精準)· `none` |
-| **音效** | `local` 本地模型(免費)· `none` |
+| **音效** | `ace` ACE Studio(免費,而且**帶著跨專案的作品庫**)· `none` |
+
+偵測到 ACE Studio 就**告訴使用者庫裡已經有幾個音檔** —— 那是它馬上就能用的東西,不是要重新生成的。ACE 會掛成 MCP server,agent 直接拿到 `list_library` 等工具。
 
 **依偵測結果給推薦,不要給空白選單。** 偵測到 Blender 就推薦 `blender` 並說明理由;沒偵測到而使用者也沒有 GPU,就推薦雲端並**講清楚一次 run 大概多少錢**。
 

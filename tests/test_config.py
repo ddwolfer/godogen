@@ -42,7 +42,7 @@ def test_a_missing_file_is_not_an_error(tmp_path: Path):
 def test_each_kind_defaults_to_its_first_backend():
     assert config.backend("ASSET_3D", {}) == "blender"
     assert config.backend("ASSET_2D", {}) == "comfyui"
-    assert config.backend("ASSET_AUDIO", {}) == "local"
+    assert config.backend("ASSET_AUDIO", {}) == "ace"
 
 
 def test_kinds_are_independent():
@@ -97,9 +97,19 @@ def test_describe_marks_cost():
 
 def test_uses_cloud_detects_any_paid_backend():
     assert config.uses_cloud({"ASSET_3D": "tripo3d", "ASSET_2D": "comfyui",
-                              "ASSET_AUDIO": "local"})
+                              "ASSET_AUDIO": "ace"})
     assert not config.uses_cloud({"ASSET_3D": "blender", "ASSET_2D": "comfyui",
-                                  "ASSET_AUDIO": "none"})
+                                  "ASSET_AUDIO": "ace"})
+
+
+def test_uses_cloud_checks_every_axis_not_just_the_first():
+    """any() short-circuits, so a paid backend on the last axis has to be
+    found too -- and an invalid value on a later axis has to still raise."""
+    assert config.uses_cloud({"ASSET_3D": "blender", "ASSET_2D": "grok",
+                              "ASSET_AUDIO": "ace"})
+    with pytest.raises(config.UnknownBackend):
+        config.uses_cloud({"ASSET_3D": "blender", "ASSET_2D": "comfyui",
+                           "ASSET_AUDIO": "local"})
 
 
 def test_example_file_documents_every_setting():

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.publish_lib import kgwire
+from scripts.publish_lib import external, kgwire
 
 
 def _fake_kg(root: Path) -> Path:
@@ -23,7 +23,7 @@ def no_installed_kg(monkeypatch):
     not to have one installed -- the test would go green for a reason that has
     nothing to do with the code, and flip the day someone installs it.
     """
-    monkeypatch.setattr(kgwire, "DEFAULT_KG_PATHS", ())
+    monkeypatch.setattr(external, "ANCHORS", ())
 
 
 def test_env_override_wins(tmp_path: Path):
@@ -49,22 +49,29 @@ def test_directory_without_main_js_is_not_kg(tmp_path: Path):
         kgwire.find_kg_home({"GODOGEN_KG_HOME": str(bare)})
 
 
-def test_default_search_paths_are_derived_not_hardcoded():
-    """A literal path only works on the machine it was written on. Every
-    candidate must be anchored to the checkout or to the home directory --
-    a sibling of the checkout counts, a drive letter does not."""
-    root = Path(kgwire.__file__).resolve().parents[2]
-    anchors = (root, root.parent, Path.home())
-    for candidate in kgwire.DEFAULT_KG_PATHS:
-        assert any(candidate.is_relative_to(a) for a in anchors), (
-            f"{candidate} is anchored to nothing this repo knows about"
+def test_search_anchors_are_derived_not_hardcoded():
+    """A literal path only works on the machine it was written on."""
+    root = Path(external.__file__).resolve().parents[2]
+    for anchor in external.ANCHORS:
+        assert anchor in (root, root.parent) or anchor.is_relative_to(Path.home()), (
+            f"{anchor} is anchored to nothing this repo knows about"
         )
 
 
 def test_fallback_paths_are_searched_when_env_is_unset(tmp_path: Path, monkeypatch):
-    kg = _fake_kg(tmp_path)
-    monkeypatch.setattr(kgwire, "DEFAULT_KG_PATHS", (kg,))
-    assert kgwire.find_kg_home({}) == kg
+    _fake_kg(tmp_path)
+    monkeypatch.setattr(external, "ANCHORS", (tmp_path,))
+    assert kgwire.find_kg_home({}) == tmp_path / "kg"
+
+
+def test_the_default_clone_name_is_searched_too(tmp_path: Path, monkeypatch):
+    """`git clone <url>` produces Multi-knowledgeGraph, and most people leave
+    it. Searching only for `kg/` missed a real installation."""
+    home = tmp_path / "Multi-knowledgeGraph"
+    (home / "hooks").mkdir(parents=True)
+    (home / "main.js").touch()
+    monkeypatch.setattr(external, "ANCHORS", (tmp_path,))
+    assert kgwire.find_kg_home({}) == home
 
 
 def test_mcp_config_declares_two_servers(tmp_path: Path):
