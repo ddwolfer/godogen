@@ -2,12 +2,12 @@
 """Publish godogen runtime files into a target game repo.
 
 Usage:
-    python publish.py --engine godot|babylon --out <dir> [--force]
+    python publish.py --engine godot|babylon [--agent claude|codex] --out <dir> [--force]
     python publish.py --engine godot <dir> [--force]
 
-A published repo carries only docs: the runtime manifest (CLAUDE.md), a
-per-engine guide (<engine>.md), and the skills. The agent scaffolds the game
-itself from the engine guide -- no project scaffold is shipped.
+A published repo carries only docs: the runtime manifest (CLAUDE.md for Claude
+Code, AGENTS.md for Codex), a per-engine guide (<engine>.md), and the skills.
+The agent scaffolds the game itself from the guide -- no project scaffold ships.
 
 Pure Python on purpose: it runs identically on Windows and POSIX, and avoids
 the rsync/mktemp dependency of the shell version it replaces.
@@ -23,6 +23,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from scripts import generate_codex_metadata
 from scripts.publish_lib import kgwire, layout
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -51,7 +52,7 @@ def _write_json(path: Path, data: dict) -> None:
     _write(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
-def _wire_knowledge(target: Path, kg_home: Path | None) -> None:
+def _wire_knowledge(target: Path, kg_home: Path | None, agent: str) -> None:
     """Point the game repo at the shared kg install and both knowledge bases.
 
     craft.db lives with godogen so every game reads the same accumulated
@@ -64,18 +65,31 @@ def _wire_knowledge(target: Path, kg_home: Path | None) -> None:
     craft_db = REPO_ROOT / layout.CRAFT_DB_NAME
     game_db = target / ".kg" / layout.GAME_DB_NAME
     game_db.parent.mkdir(parents=True, exist_ok=True)
+    harvest = REPO_ROOT / "hooks" / "harvest_commit.py"
 
-    _write_json(target / ".mcp.json", kgwire.mcp_config(kg_home, craft_db, game_db))
-    _write_json(
-        target / ".claude" / "settings.json",
-        kgwire.hook_settings(
-            kg_home,
-            craft_db,
-            game_db,
-            harvest_script=REPO_ROOT / "hooks" / "harvest_commit.py",
-        ),
-    )
-    print(f"Wired knowledge: kg at {kg_home}")
+    if agent == "codex":
+        _write(
+            target / ".codex" / "config.toml",
+            kgwire.codex_mcp_config(kg_home, craft_db, game_db),
+        )
+        _write_json(
+            target / ".codex" / "hooks.json",
+            kgwire.codex_hook_settings(kg_home, craft_db, game_db, harvest_script=harvest),
+        )
+        print(f"Wired knowledge: kg at {kg_home}")
+        print(kgwire.CODEX_NO_COMPACT_HOOK, file=sys.stderr)
+        print(
+            "note: Codex hooks are opt-in -- set [features].codex_hooks = true in "
+            "~/.codex/config.toml, and trust this project's .codex/ layer.",
+            file=sys.stderr,
+        )
+    else:
+        _write_json(target / ".mcp.json", kgwire.mcp_config(kg_home, craft_db, game_db))
+        _write_json(
+            target / ".claude" / "settings.json",
+            kgwire.hook_settings(kg_home, craft_db, game_db, harvest_script=harvest),
+        )
+        print(f"Wired knowledge: kg at {kg_home}")
 
     if not craft_db.exists():
         print(
@@ -112,13 +126,16 @@ def _guard_target(target: Path) -> None:
 def publish(
     engine: str,
     out: Path | str,
+    agent: str = "claude",
     force: bool = False,
     kg_home: Path | None = None,
     wire_knowledge: bool = True,
 ) -> Path:
     """Render the runtime layout for `engine` into `out`. Returns the target path."""
-    tokens_manifest = layout.manifest_tokens(engine)  # raises UnknownEngine
-    tokens_skill = layout.skill_tokens(engine, godogen_root=str(REPO_ROOT))
+    tokens_manifest = layout.manifest_tokens(engine, agent)  # raises on unknown
+    tokens_skill = layout.skill_tokens(engine, agent, godogen_root=str(REPO_ROOT))
+    manifest_name = layout.manifest_file(agent)
+    skills_rel = layout.skills_dir(agent)
 
     target = Path(out)
     if force:
@@ -129,7 +146,7 @@ def publish(
     target.mkdir(parents=True, exist_ok=True)
     target = target.resolve()
 
-    print(f"Publishing {engine} to: {target}")
+    print(f"Publishing {engine}/{agent} to: {target}")
 
     # --- Skills: rendered in a scratch copy, then installed ---
     with tempfile.TemporaryDirectory() as tmp:
@@ -140,13 +157,16 @@ def publish(
             if skill.is_dir():
                 shutil.copytree(skill, staged / skill.name, ignore=_IGNORE)
         _render_tree(staged, tokens_skill)
-        shutil.copytree(staged, target / ".claude" / "skills", dirs_exist_ok=True)
-    print("Installed skills")
+        if agent == "codex":
+            # Codex discovers skills through agents/openai.yaml, not frontmatter.
+            generate_codex_metadata.main(["generate_codex_metadata.py", str(staged)])
+        shutil.copytree(staged, target / skills_rel, dirs_exist_ok=True)
+    print(f"Installed skills into {skills_rel}")
 
     # --- Manifest: the runtime process doc ---
     manifest = (REPO_ROOT / "prompts" / "runtime.md").read_text(encoding="utf-8")
-    _write(target / "CLAUDE.md", render_text(manifest, tokens_manifest))
-    print("Created CLAUDE.md")
+    _write(target / manifest_name, render_text(manifest, tokens_manifest))
+    print(f"Created {manifest_name}")
 
     # --- Per-engine guide (literal markdown) ---
     guide_name = tokens_manifest["ENGINE_GUIDE_FILE"]
@@ -156,12 +176,14 @@ def publish(
 
     # --- Knowledge: the shared kg install and both databases ---
     if wire_knowledge:
-        _wire_knowledge(target, kg_home if kg_home is not None else kgwire.find_kg_home())
+        _wire_knowledge(
+            target, kg_home if kg_home is not None else kgwire.find_kg_home(), agent
+        )
 
     # --- .gitignore (published instruction files are regenerated) ---
     gitignore = target / ".gitignore"
     if not gitignore.exists():
-        _write(gitignore, "\n".join(layout.gitignore_lines(engine)) + "\n")
+        _write(gitignore, "\n".join(layout.gitignore_lines(engine, agent)) + "\n")
         print("Created .gitignore")
 
     subprocess.run(
@@ -177,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="publish.py", description="Publish godogen runtime files into a game repo."
     )
     parser.add_argument("--engine", required=True, choices=sorted(layout.ENGINES))
+    parser.add_argument("--agent", default="claude", choices=sorted(layout.AGENTS))
     parser.add_argument("--out", help="target directory")
     parser.add_argument("target", nargs="?", help="target directory (positional form)")
     parser.add_argument(
@@ -191,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("target specified more than once")
 
     try:
-        publish(args.engine, out, force=args.force)
-    except (layout.UnknownEngine, UnsafeTarget) as exc:
+        publish(args.engine, out, agent=args.agent, force=args.force)
+    except (layout.UnknownEngine, layout.UnknownAgent, UnsafeTarget) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0

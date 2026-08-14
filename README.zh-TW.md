@@ -1,6 +1,6 @@
 # Godogen
 
-用 Claude Code 自動開發 Godot 與 Babylon.js 遊戲 —— 而且每個新專案都從上一個學到的東西開始。
+用 Claude Code 或 Codex 自動開發 Godot 與 Babylon.js 遊戲 —— 而且每個新專案都從上一個學到的東西開始。
 
 繁體中文 | [English](README.md)
 
@@ -63,11 +63,24 @@ Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized for post-comp
 ```bash
 python publish.py --engine godot   --out ~/my-game
 python publish.py --engine babylon --out ~/my-game
+python publish.py --engine godot --agent codex --out ~/my-game
 ```
 
-`--force` 會先清空目標目錄。然後在那個目錄開 Claude Code,描述你要的遊戲。
+`--force` 會先清空目標目錄。然後在那個目錄開你的 agent,描述你要的遊戲。
 
-publish 出去的 repo 只帶四樣:`CLAUDE.md`、一頁的引擎指南、素材 skill、以及兩個知識庫的接線。其他一切 —— 專案骨架、截圖錄影工具 —— agent 自己照指南蓋。
+publish 出去的 repo 只帶四樣:manifest(`CLAUDE.md`,Codex 是 `AGENTS.md`)、一頁的引擎指南、三個 skill、以及兩個知識庫的接線。其他一切 —— 專案骨架、截圖錄影工具 —— agent 自己照指南蓋。
+
+**動手之前它會先跑 `/game-design`** —— 一段訪談,產出 `DESIGN.md`:核心動詞、玩家反覆在做的那個決策、明確不做什麼以及為什麼。
+
+理由是:「做一個塔防」那句話裡只有 3% 的資訊量,剩下的 97% 如果不問出來,就會在實作過程中被默默替你決定,然後在第一次壓縮時消失。**最貴的錯不是程式碼寫錯,是蓋錯東西。**
+
+### Codex
+
+Codex 是支援的目標,但**知識迴圈比較弱**。
+
+它有 `SessionStart`、`UserPromptSubmit`、`PostToolUse`,但**沒有壓縮後觸發的事件** —— 而一次 generation run 跑幾小時、會壓縮好幾次。所以在 Codex 上,知識在開場和每則訊息時進來,但**壓縮之後不會被重新注入**。
+
+Codex 的 hooks 目前還是 experimental 而且要手動開啟:在 `~/.codex/config.toml` 設 `[features].codex_hooks = true`,並信任專案的 `.codex/` 層。
 
 ## 原始碼配置
 
@@ -98,15 +111,16 @@ publish 出去的 repo 只帶四樣:`CLAUDE.md`、一頁的引擎指南、素材
 - **用 GDScript 不用 C#。** 上游因為 GDScript 的型別推導陷阱改用 C#。但用一個 1015 條測試的 GDScript 專案實測,那些陷阱一整天大約花掉 3 分鐘、從未造成執行期 bug;而同一天真正的坑(A* 啟發式高估、測試假綠、PowerShell 截檔)沒有一個是編譯器能救的。
 - **素材本地優先。** 上游全部走付費 API,而且完全沒有音訊管線。
 - **有意見的 manifest。** 上游的是 11 行、對「怎麼做」隻字不提。這一版加了 sim/render 分離、驗收五層梯,以及兩條除錯守則 —— 都是**看起來像成功的失敗**。
+- **多了設計階段。** 上游從一句話直接進程式碼。這一版先訪談,而且把決定寫下來 —— 包含**被排除掉的東西**。
 - **引擎** —— Godot 與 Babylon.js,砍掉 Bevy。
-- **Host agent** —— Claude Code,砍掉 Codex。
 - **`publish.py` 取代 `publish.sh`** —— 一份實作同時支援 Windows 與 POSIX,不依賴 `rsync`、`mktemp`、`xvfb`。
 
 **中文的文件是實際驗證過的,英文的是從上游繼承、尚未驗證的。**
 
 ## 已知限制
 
-- **`auto-recall` 對純中文無效。** 它依空白切詞,而中文沒有空格,整句會變成一個 phrase query。另外兩個注入 hook(開場、壓縮後)不受影響。
+- **`auto-recall` 對純中文無效。** 它依空白切詞,而中文沒有空格,整句會變成一個 phrase query。另外兩個注入 hook(開場、壓縮後)不受影響。**這條在 Codex 上影響最大** —— 那邊它是唯一全程可用的注入管道。
+- **Codex 沒有壓縮後注入。** 見上。
 - **壓縮後的注入額度是 10 條**,由 `scripts/seed_priority.py` 決定是哪 10 條(方法論優先於情境性陷阱)。
 - Babylon 的指南與截圖路徑未在 Windows 驗證。
 - 從來沒有用它真的做出一個完整的遊戲 —— 零件都驗過,整條路沒走過。
