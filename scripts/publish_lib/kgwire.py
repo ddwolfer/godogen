@@ -146,3 +146,78 @@ def hook_settings(
         ]
 
     return {"hooks": hooks}
+
+
+# --- Codex ----------------------------------------------------------------
+
+# Codex has SessionStart, UserPromptSubmit and PostToolUse, but no event that
+# fires after context compaction -- and compaction is exactly when re-injection
+# matters, because a generation run compacts several times over hours. On Codex
+# the only always-available channel is UserPromptSubmit, so auto-recall carries
+# the load alone. Verified against the Codex docs on 2026-08-14; hooks there are
+# still marked experimental, so re-check before trusting this.
+CODEX_NO_COMPACT_HOOK = (
+    "note: Codex has no post-compaction hook. Knowledge is injected at session "
+    "start and on each prompt, but is not re-injected after a compaction."
+)
+
+
+def _toml_string(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def codex_mcp_config(kg_home: Path, craft_db: Path, game_db: Path) -> str:
+    """`.codex/config.toml` -- one [mcp_servers.<name>] table per database."""
+    main = str((kg_home / "main.js").resolve())
+    blocks = []
+    for name, db in (("kg-craft", craft_db), ("kg-game", game_db)):
+        args = ", ".join(
+            _toml_string(a) for a in (main, "--db", str(Path(db).resolve()))
+        )
+        blocks.append(f"[mcp_servers.{name}]\ncommand = \"node\"\nargs = [{args}]\n")
+    return "\n".join(blocks)
+
+
+def codex_hook_settings(
+    kg_home: Path,
+    craft_db: Path,
+    game_db: Path,
+    harvest_script: Path | None = None,
+) -> dict:
+    """`.codex/hooks.json`. Same three injecting scripts, minus the one Codex
+    has no event for. Codex spells the timeout field `timeoutSec`."""
+    craft = str(Path(craft_db).resolve())
+    game = str(Path(game_db).resolve())
+
+    def commands(script: str) -> list[dict]:
+        hook = str((kg_home / "hooks" / script).resolve())
+        return [
+            {
+                "type": "command",
+                "command": f'node "{hook}" "{db}"',
+                "timeoutSec": HOOK_TIMEOUT_S,
+            }
+            for db in (craft, game)
+        ]
+
+    hooks: dict[str, list[dict]] = {
+        "SessionStart": [{"hooks": commands("session-start.js")}],
+        "UserPromptSubmit": [{"hooks": commands("auto-recall.js")}],
+    }
+
+    if harvest_script is not None:
+        script = str(Path(harvest_script).resolve())
+        hooks["PostToolUse"] = [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": f'python "{script}" --db "{game}"',
+                        "timeoutSec": HOOK_TIMEOUT_S,
+                    }
+                ],
+            }
+        ]
+
+    return {"hooks": hooks}

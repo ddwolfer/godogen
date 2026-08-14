@@ -1,6 +1,6 @@
 # Godogen
 
-Autonomous game development for Godot and Babylon.js with Claude Code — where each project starts with what the last one learned.
+Autonomous game development for Godot and Babylon.js with Claude Code or Codex — where each project starts with what the last one learned.
 
 [繁體中文](README.zh-TW.md) | English
 
@@ -55,11 +55,20 @@ Full prerequisites — Godot, Python, ffmpeg, the optional local asset services 
 ```bash
 python publish.py --engine godot   --out ~/my-game
 python publish.py --engine babylon --out ~/my-game
+python publish.py --engine godot --agent codex --out ~/my-game
 ```
 
-`--force` wipes the target first. Then open Claude Code in that directory and describe the game you want.
+`--force` wipes the target first. Then open your agent in that directory and describe the game you want.
 
-The published repo carries `CLAUDE.md`, a one-page engine guide, the asset skill, and wiring to both knowledge bases. Everything else — project scaffold, capture tooling — the agent builds from the guide.
+The published repo carries the manifest (`CLAUDE.md`, or `AGENTS.md` for Codex), a one-page engine guide, three skills, and wiring to both knowledge bases. Everything else — project scaffold, capture tooling — the agent builds from the guide.
+
+Before writing code the agent runs `/game-design`: an interview that produces `DESIGN.md` — core verb, the decision the player keeps making, what the game explicitly will not do and why. "Make a tower defense" carries about three percent of the game you have in mind, and the rest is otherwise invented silently and lost at the first compaction.
+
+### Codex
+
+Codex is a supported target, with a smaller knowledge story. It has `SessionStart`, `UserPromptSubmit` and `PostToolUse`, but **no event that fires after context compaction** — and a generation run compacts several times over hours. So on Codex, knowledge arrives at session start and on each prompt, but is not re-injected after a compaction.
+
+Codex hooks are also opt-in and experimental: set `[features].codex_hooks = true` in `~/.codex/config.toml` and trust the project's `.codex/` layer.
 
 ## Source layout
 
@@ -88,17 +97,19 @@ Windows-first, Godot-centric, and opinionated where upstream is deliberately not
 - **GDScript, not C#.** Upstream switched to C# over GDScript's type-inference traps. Measured against a 1015-test GDScript project those cost about three minutes a day and never caused a runtime bug, while that day's real bugs were all things a compiler cannot catch.
 - **Local assets first.** Upstream generates everything through paid APIs and ships no audio pipeline at all.
 - **An opinionated manifest.** Upstream's is eleven lines and says nothing about method. This one adds sim/render separation, the verification ladder, and two debugging rules — the failures that look like success.
+- **A design step.** Upstream goes from one sentence straight to code. This one interviews first and writes down what was decided, including what was ruled out.
 - **Engines** — Godot and Babylon.js. Bevy is dropped.
-- **Host agent** — Claude Code. Codex rendering is dropped.
 - **`publish.py` replaces `publish.sh`** — one implementation for Windows and POSIX, no `rsync`, `mktemp`, or `xvfb`.
 
 Documents in Chinese have been verified against real runs; documents in English are inherited from upstream and have not.
 
 ## Known limitations
 
-- `auto-recall` matches by splitting on whitespace, so it misses Chinese prompts that contain no spaces. The other two injection hooks are unaffected.
+- `auto-recall` matches by splitting on whitespace, so it misses Chinese prompts that contain no spaces. This matters most on Codex, where it is the only always-available injection channel.
+- Codex has no post-compaction hook, so knowledge is not re-injected after a compaction there.
 - The post-compaction budget is ten entries; `scripts/seed_priority.py` decides which ten.
 - The Babylon guide and its capture path are unverified on Windows.
+- Nothing here has yet built a complete game. Every part is verified; the whole path is not.
 
 ## Development
 

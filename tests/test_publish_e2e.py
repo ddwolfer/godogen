@@ -93,6 +93,25 @@ def test_pycache_is_not_published(tmp_path: Path):
     assert not list(out.rglob("__pycache__"))
 
 
+@pytest.mark.parametrize("agent", ["claude", "codex"])
+def test_no_unsubstituted_tokens_anywhere_in_the_output(tmp_path: Path, agent: str):
+    """Checking only the manifest missed that a token can reach any rendered
+    file. .git is git's own boilerplate, not ours."""
+    out = tmp_path / "game"
+    publish.publish("godot", out, agent=agent, wire_knowledge=False)
+
+    offenders = []
+    for path in out.rglob("*"):
+        if not path.is_file() or ".git" in path.parts:
+            continue
+        try:
+            if "${" in path.read_text(encoding="utf-8"):
+                offenders.append(path.relative_to(out))
+        except UnicodeDecodeError:
+            continue
+    assert not offenders, f"unsubstituted tokens in: {offenders}"
+
+
 def test_publish_installs_kg_harvest_skill(tmp_path: Path):
     out = tmp_path / "game"
     publish.publish("godot", out, wire_knowledge=False)
