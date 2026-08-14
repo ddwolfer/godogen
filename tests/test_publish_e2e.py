@@ -128,8 +128,8 @@ def test_kg_harvest_skill_knows_where_godogen_is(tmp_path: Path):
     assert str(publish.REPO_ROOT) in text
 
 
-def _fake_kg(root: Path) -> Path:
-    kg = root / "kg"
+def _fake_kg(root: Path, name: str = "kg") -> Path:
+    kg = root / name
     (kg / "hooks").mkdir(parents=True)
     (kg / "main.js").touch()
     for hook in ("session-start.js", "post-compact.js", "auto-recall.js"):
@@ -168,6 +168,41 @@ def test_kg_absent_still_publishes(tmp_path: Path, capsys, monkeypatch):
     assert (out / "CLAUDE.md").is_file()
     assert not (out / ".mcp.json").exists()
     assert "no kg installation found" in capsys.readouterr().err
+
+
+def test_two_kg_installations_are_named_when_publishing(
+    tmp_path: Path, capsys, monkeypatch
+):
+    """Publishing is where a shadowed install does the most damage: the chosen
+    path is baked into .mcp.json and every hook command, and this runs once per
+    game rather than once per machine like bootstrap."""
+    anchor = tmp_path / "anchor"
+    first = _fake_kg(anchor, "kg")
+    second = _fake_kg(anchor, "Multi-knowledgeGraph")
+    monkeypatch.setattr(publish.kgwire.external, "ANCHORS", (anchor,))
+    monkeypatch.delenv("GODOGEN_KG_HOME", raising=False)
+
+    publish.publish("godot", tmp_path / "game", kg_home=None)
+
+    err = capsys.readouterr().err
+    assert str(first) in err
+    assert str(second) in err
+    assert "GODOGEN_KG_HOME" in err
+
+
+def test_an_explicit_kg_home_is_never_reported_as_ambiguous(
+    tmp_path: Path, capsys, monkeypatch
+):
+    """Naming the install is a choice, so there is nothing to disambiguate."""
+    anchor = tmp_path / "anchor"
+    _fake_kg(anchor, "kg")
+    chosen = _fake_kg(anchor, "Multi-knowledgeGraph")
+    monkeypatch.setattr(publish.kgwire.external, "ANCHORS", (anchor,))
+    monkeypatch.delenv("GODOGEN_KG_HOME", raising=False)
+
+    publish.publish("godot", tmp_path / "game", kg_home=chosen)
+
+    assert "installations found" not in capsys.readouterr().err
 
 
 def test_gitignore_covers_the_knowledge_cache(tmp_path: Path):

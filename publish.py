@@ -65,6 +65,23 @@ def _ace_home_for(settings: dict[str, str]) -> Path | None:
     return home
 
 
+def _kg_home_for(kg_home: Path | None) -> Path | None:
+    """The kg install to wire, naming any it had to pass over.
+
+    Worth saying here and not only in bootstrap: this path is baked into
+    .mcp.json and every hook command, and publishing happens once per game
+    rather than once per machine. Naming an install is a choice, so only a
+    search can be ambiguous.
+    """
+    if kg_home is not None:
+        return kg_home
+    home = kgwire.find_kg_home()
+    shadowed = kgwire.external.KG.shadow_warning()
+    if shadowed:
+        print(shadowed, file=sys.stderr)
+    return home
+
+
 def _wire_knowledge(
     target: Path, kg_home: Path | None, agent: str, ace_home: Path | None = None
 ) -> None:
@@ -199,7 +216,7 @@ def publish(
     if wire_knowledge:
         _wire_knowledge(
             target,
-            kg_home if kg_home is not None else kgwire.find_kg_home(),
+            _kg_home_for(kg_home),
             agent,
             ace_home=_ace_home_for(settings),
         )
