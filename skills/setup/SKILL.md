@@ -29,15 +29,29 @@ description: |
 
 | 查什麼 | 怎麼查 |
 |---|---|
-| Godot | `godot --version`;不在 PATH 就找常見安裝位置 |
+| Godot | 先看 `GODOT_PATH`,再 `godot --version`,最後找常見安裝位置 |
 | Python | `python --version`,要 3.11+ |
 | Node.js | `node --version`,要 22.12+ |
 | ffmpeg | `ffmpeg -version` |
-| kg | `<godogen>/kg`、`<godogen>/../kg`、`~/.godogen/kg`,看有沒有 `main.js` 與 `hooks/` |
-| Blender | `blender --version`;Windows 上找 Steam 與 Program Files |
+| Blender | 先看 `BLENDER_PATH`,再 `blender --version`;Windows 上找 Steam 與 Program Files |
 | ComfyUI | `GET <COMFYUI_URL>/system_stats`,逾時 2 秒 |
-| ACE Studio | `<godogen>/ACE_Studio`、`../ACE_Studio`、`~/.godogen/ACE_Studio`,看有沒有 `mcp-server/` 與 `library/` |
+| kg 與 ACE Studio | 問 `external.py`,見下 |
 | 雲端金鑰 | 環境變數裡有沒有 `GOOGLE_API_KEY` / `XAI_API_KEY` / `TRIPO3D_API_KEY` |
+
+kg 和 ACE Studio 的搜尋規則住在 `scripts/publish_lib/external.py`:環境變數
+(`GODOGEN_KG_HOME` / `ACE_STUDIO_HOME`)最優先,沒設才掃 `<godogen>`、
+`<godogen>/..`、`~/.godogen`,而且每個位置都乘上這兩個 repo 常見的兩種目錄名
+(`kg` 與 `Multi-knowledgeGraph`、`ACE_Studio` 與 `ace-studio`)。所以要問程式:
+
+```bash
+python -c "import sys; sys.path.insert(0,'.'); from scripts.publish_lib import external; [print(t.name, t.find()) for t in external.TOOLS]"
+```
+
+在這裡自己拼一份路徑清單,代價是**在一台其實已經裝好的機器上判定「沒裝」**,然後
+叫使用者重下載幾百 MB —— 而且索引會照樣建成功,所以沒有人會發現。
+
+環境變數指到不是安裝目錄的地方,`find()` 會 raise 並說明缺哪個 marker。那是刻意
+的:不要 catch 掉改用搜出來的另一份,使用者設了那個變數就是有原因。
 
 **把結果整理成一張表給使用者看。** 他要先知道自己站在哪裡。
 
@@ -65,7 +79,10 @@ description: |
 
 ## 第 4 步:知識索引
 
-kg 沒裝就先裝(這是唯一需要下載的東西,約 560MB 模型):
+第 1 步問出 kg 位置的話就跳過安裝。模型快取跟著那份安裝走,所以再 clone 一份等於
+重下載 560MB,而且 `<godogen>/kg` 排在搜尋順序最前面,會蓋掉使用者原本那份。
+
+真的沒有才裝(這是唯一需要下載的東西,約 560MB 模型):
 
 ```bash
 git clone https://github.com/ddwolfer/Multi-knowledgeGraph kg
