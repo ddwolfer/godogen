@@ -68,6 +68,7 @@ _SKILL_COMMANDS = {
     "ASSET_SKILL_COMMAND": "asset-gen",
     "KG_HARVEST_COMMAND": "kg-harvest",
     "GAME_DESIGN_COMMAND": "game-design",
+    "GAME_UI_COMMAND": "game-ui",
     "SETUP_COMMAND": "setup",
 }
 

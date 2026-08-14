@@ -127,7 +127,7 @@ def test_publish_codex_generates_skill_metadata(tmp_path: Path):
     """Codex discovers skills through agents/openai.yaml, not frontmatter."""
     out = tmp_path / "game"
     publish.publish("godot", out, agent="codex", wire_knowledge=False)
-    for skill in ("asset-gen", "game-design", "kg-harvest"):
+    for skill in ("asset-gen", "game-design", "game-ui", "kg-harvest"):
         assert (out / ".agents" / "skills" / skill / "agents" / "openai.yaml").is_file()
 
 
