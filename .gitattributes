@@ -1,0 +1,11 @@
+# LF everywhere. Without this, core.autocrlf=true rewrites the working tree on
+# every checkout, which flips line endings under files nobody edited and makes
+# diffs unreadable across machines.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.glb binary
+*.wav binary
+*.mp4 binary
+*.db binary

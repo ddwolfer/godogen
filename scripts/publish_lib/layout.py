@@ -39,6 +39,7 @@ def runtime_asset_dir(engine: str) -> str:
 _COMMANDS = {
     "ASSET_SKILL_COMMAND": "/asset-gen",
     "KG_HARVEST_COMMAND": "/kg-harvest",
+    "GAME_DESIGN_COMMAND": "/game-design",
 }
 
 
