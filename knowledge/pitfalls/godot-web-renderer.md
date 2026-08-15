@@ -20,4 +20,4 @@ Godot 桌面預設 **Forward+**,web 只能用 **Compatibility**(WebGL2)。同一
 
 ## 相關
 
-[[godot-web-font]] 是同一次 web 匯出會一起撞到的另一個問題。決定「要不要出 web」是 day-1 的事,因為這兩條的修正成本都隨時間急遽上升。
+[[godot-web-font]] 與 [[godot-web-audio-buses]] 是同一次 web 匯出會一起撞到的另外兩個問題。決定「要不要出 web」是 day-1 的事,因為這三條的修正成本都隨時間急遽上升。
