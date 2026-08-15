@@ -38,6 +38,29 @@ def test_manifest_still_fixes_durable_state_and_proof():
     assert "${KG_HARVEST_COMMAND}" in text
 
 
+def test_the_screenshot_layer_is_delegated_to_fresh_eyes():
+    """The builder cannot see "made it but you cannot see it": knowing the
+    fireball is there is enough to see it. Layer 2 only catches anything if
+    the reader does not know what was intended."""
+    text = _text()
+    assert "subagent" in text
+    assert "不要告訴它你做了什麼" in text
+
+
+def test_the_reviewer_is_told_to_carry_its_own_yardstick():
+    """A subagent gets no knowledge-base injection -- SessionStart and
+    UserPromptSubmit fire for the session, and SubagentStart cannot add
+    context. So whatever the reviewer needs has to be in the prompt."""
+    assert "判準要你寫進 prompt" in _text()
+
+
+def test_the_ladder_does_not_also_say_look_at_it_yourself():
+    """Delegating layer 2 and doing it yourself are contradictory orders about
+    the same layer, and a manifest holding both gets obeyed in whichever
+    direction is cheaper that minute."""
+    assert "是你看,不是等使用者看" not in _text()
+
+
 def test_manifest_stays_short():
     """A manifest nobody reads to the end fixes nothing. Upstream ran 11 lines;
     the methodology earns more, but not unboundedly more."""
