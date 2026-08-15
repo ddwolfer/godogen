@@ -117,7 +117,7 @@ Codex hooks are also opt-in and experimental: set `[features].codex_hooks = true
 - **Godot 4** — GDScript on the standard build, simulation split from rendering so runs are deterministic and replayable.
 - **Babylon.js** — TypeScript/Vite served at a live URL. Inherited from upstream, unverified on Windows.
 - **Assets, locally** — Blender procedural models, ComfyUI icons, and a local audio model for sound effects, with the post-processing that makes their output usable. Free per call and reproducible. Paid cloud APIs remain as a fallback.
-- **Proof over claims** — judged from the running game, never from a clean build. Five layers, ordered by what actually catches problems: your playthrough, the agent reading its own screenshots, measurement probes, tests, then deadlock checks.
+- **Proof over claims** — judged from the running game, never from a clean build. Five layers, ordered by what actually catches problems: your playthrough, a fresh-context reviewer reading the screenshots, measurement probes, tests, then deadlock checks. The reviewer is a separate agent on purpose -- the one who built the thing already knows the fireball is there, so it sees it.
 - **You choose your involvement** — steer a live game, or leave the run unattended and get a 15–20s proof recording. The agent takes its cue from how you frame the task.
 
 ## Differences from upstream
