@@ -104,6 +104,8 @@ sys.exit(code)
 
 **autotest** —— 全速跑完一整場,專抓永不結束。把「超過 N tick 就印出現場狀態並 `quit(2)`」做成常駐診斷。
 
+**headless 測試不會載入呈現層的執行期路徑。** 刪掉一個函式、改掉一個 API,`run_tests` 照樣全綠,而遊戲一開就 `SCRIPT ERROR` —— 只有真的把遊戲跑起來(截圖、錄影、合成輸入的自動試玩)才會踩到。**而且看輸出的時候不要用 grep 把錯誤區塊濾掉**,那一段就是專門要給你看的。
+
 測試設計上注意:**用對照組不要用絕對值**(「A 應該比 B 小」而不是「傷害 ≤ 某值」),並在斷言前先確認受測情境真的成立 —— 否則會出現「什麼都沒發生所以測試通過」的假綠。
 
 ## 錄影
@@ -119,6 +121,63 @@ ffmpeg -y -framerate 30 -pattern_type glob -i "screenshots/result/frame*.png" \
 `--fixed-fps` 讓動態確定化(450 幀 @30fps = 15 秒)。**鏡頭要在第一幀之前就定位好** —— 第一張 movie frame 在 `_process` 之前就渲染了。錄製期間的輸入由腳本驅動,不要靠實際按鍵。
 
 影片必須整段都有東西在推進,不能有死時間或單格循環。錄影抓得到截圖抓不到的時序問題:原地抖動、節奏、特效時機。
+
+## Web 版
+
+**預設它會出 web。** 分享一個遊戲最自然的方式是給一個連結,而那條路一定經過瀏覽器 —— itch.io 的分享路徑就是 web。答「不出 web」再回頭改,成本是下面整節。
+
+三個失敗都**只在瀏覽器裡發生,而且都不報錯**:
+
+| 症狀 | 原因 | 一開始就這樣做 |
+|---|---|---|
+| 中文全變豆腐方塊 | `SystemFont` 在 web 沙箱拿不到系統字型 | 嵌入**子集化**字型;完整 CJK 11.9 MB,一個遊戲通常只用 400–1000 字 |
+| 顏色與桌面不同 | 桌面 Forward+,web 只能 Compatibility | 兩邊都用 `gl_compatibility` |
+| **完全沒有聲音** | 執行期 `AudioServer.add_bus()` | **不要建 bus**,音量寫在每個 `AudioStreamPlayer.volume_db` 上 |
+
+最後一條最惡劣:引擎回報驅動是 `AudioWorklet`、bus 音量正確、`playing = true`、瀏覽器的 `AudioContext.state` 是 `running`,而它送出一片精確的零。而且 **`AudioServer.get_bus_peak_volume_left_db()` 在 web 恆為 −200**,所以那個看起來最像驗證的 API 在兩種情況下給一樣的讀數。
+
+### 字型子集化的三個雷
+
+1. **來源字型不能放進專案資料夾** —— Godot 會一起打包,pck 直接多十幾 MB。從系統字型目錄讀。
+2. **U+3000 全形空格要明列。** 常見的「濾掉空白」用 `isspace()`,它會被濾掉;拿它當排版間隔就會變豆腐,而且只有瀏覽器看得到。
+3. **可變字型預設字重是 100**(細到讀不動)。用 `fontTools.varLib.instancer` 把字重**烘進**子集,不要靠執行期的 `FontVariation` —— 那層沒生效時無聲無息。
+
+### 驗證:一定要真的開瀏覽器
+
+桌面通過證明不了任何 web 的事。本機起一個帶 cross-origin isolation 標頭的伺服器(Godot 4 的 SharedArrayBuffer 需要,少了只會白畫布):
+
+```python
+class H(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
+        super().end_headers()
+```
+
+**畫面用眼睛看,聲音用這個量** —— 貼進匯出的 `index.html` 的 `<head>`(下次匯出會被覆蓋),它攔截接到喇叭的節點,回報真實峰值。這是唯一不經過引擎 API 的量法:
+
+```js
+(function () {
+  const rc = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function (d, ...r) {
+    if (d && d.context && d === d.context.destination) {
+      if (!window.__tap) { window.__tap = d.context.createAnalyser(); window.__tap.fftSize = 2048; }
+      rc.call(this, window.__tap);
+    }
+    return rc.call(this, d, ...r);
+  };
+  window.__peak = function () {
+    const b = new Float32Array(window.__tap.fftSize);
+    window.__tap.getFloatTimeDomainData(b);
+    let p = 0; for (const v of b) p = Math.max(p, Math.abs(v));
+    return p > 0 ? 20 * Math.log10(p) : -200;
+  };
+})();
+```
+
+壞掉時 `__peak()` 是 −200(精確的零),正常時是 −30 上下。
+
+**第一次 web 匯出要早做**,不要等到要發布。這三條的修正成本都隨時間急遽上升,而且都不會有人幫你報錯。
 
 ## 3D 陷阱
 
