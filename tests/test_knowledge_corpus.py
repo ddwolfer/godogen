@@ -95,7 +95,10 @@ def test_the_summary_is_the_first_quote_in_the_file(path: Path):
     first = QUOTE.search(text)
     assert first is not None, path.name
     assert f"「{first.group(1)}」" == body[2].strip().removeprefix("> "), (
-        f"{path.name}: an earlier 「」 wins -- found {first.group(1)!r}"
+        f"{path.name}: an earlier 「」 wins -- found {first.group(1)!r}.\n"
+        "Almost always the H1: a title like # 「要保守」是方向 steals the slot "
+        "and the entry imports with the wrong quote. Rephrase the title "
+        "without brackets; the summary line is where quoting belongs."
     )
 
 

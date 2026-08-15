@@ -27,16 +27,45 @@ def test_frontmatter_override_wins(tmp_path: Path):
     assert seed_priority.priority_of(entry, corpus) == 999
 
 
-def test_every_principle_survives_the_post_compact_budget():
-    """The whole point: a 10-slot budget that dropped all seven principles is
-    how the agent ended up with traps and no method."""
+# kg's post-compact hook injects this many entries (KG_COMPACT_LIMIT there).
+# Duplicated rather than imported because it lives in another repo; if that
+# default moves, this is the line that has to move with it.
+POST_COMPACT_BUDGET = 20
+
+
+def _ranked() -> list[str]:
     ranked = sorted(
         ((seed_priority.priority_of(p, CORPUS), p) for p in CORPUS.rglob("*.md")),
         key=lambda kv: -kv[0],
     )
-    top = {p.stem for _, p in ranked[:10]}
-    principles = {p.stem for p in (CORPUS / "principles").glob("*.md")}
-    assert principles <= top, f"dropped: {principles - top}"
+    return [p.stem for _, p in ranked]
+
+
+def test_method_outranks_situational_traps():
+    """The ordering property, which holds at any budget: principles and
+    patterns are always relevant, pitfalls matter when you touch the thing."""
+    order = _ranked()
+    worst_method = max(
+        order.index(p.stem)
+        for d in ("principles", "patterns")
+        for p in (CORPUS / d).glob("*.md")
+    )
+    best_pitfall = min(order.index(p.stem) for p in (CORPUS / "pitfalls").glob("*.md"))
+    assert worst_method < best_pitfall
+
+
+def test_the_whole_method_fits_the_current_budget():
+    """A budget that drops method entries is how an agent comes out of a
+    compaction holding traps and no way to work. When this fails the answer is
+    not to delete an entry -- it is that the corpus has outgrown the budget."""
+    top = set(_ranked()[:POST_COMPACT_BUDGET])
+    method = {
+        p.stem for d in ("principles", "patterns") for p in (CORPUS / d).glob("*.md")
+    }
+    assert method <= top, (
+        f"{len(method)} method entries, {POST_COMPACT_BUDGET} slots. "
+        f"Dropped: {sorted(method - top)}"
+    )
 
 
 def test_node_key_normalises_the_importer_naming():
