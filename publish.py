@@ -2,8 +2,8 @@
 """Publish godogen runtime files into a target game repo.
 
 Usage:
-    python publish.py --engine godot|babylon [--agent claude|codex] --out <dir> [--force]
-    python publish.py --engine godot <dir> [--force]
+    python publish.py --engine godot|babylon [--agent claude|codex] --name <game>
+    python publish.py --engine godot --out <dir> [--force]
 
 A published repo carries only docs: the runtime manifest (CLAUDE.md for Claude
 Code, AGENTS.md for Codex), a per-engine guide (<engine>.md), and the skills.
@@ -242,17 +242,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--engine", required=True, choices=sorted(layout.ENGINES))
     parser.add_argument("--agent", default="claude", choices=sorted(layout.AGENTS))
     parser.add_argument("--out", help="target directory")
+    parser.add_argument(
+        "--name", help="game name; creates <GAMES_ROOT>/<name> instead of --out"
+    )
     parser.add_argument("target", nargs="?", help="target directory (positional form)")
     parser.add_argument(
         "--force", action="store_true", help="wipe the target before publishing"
     )
     args = parser.parse_args(argv)
 
-    out = args.out or args.target
-    if not out:
-        parser.error("a target directory is required (--out <dir>)")
-    if args.out and args.target:
-        parser.error("target specified more than once")
+    given = [x for x in (args.name, args.out, args.target) if x]
+    if not given:
+        parser.error(
+            f"give --name <game> (creates it under {config.games_root()}) "
+            "or --out <dir>"
+        )
+    if len(given) > 1:
+        parser.error("give only one of --name, --out, or a positional target")
+
+    out = (
+        config.games_root() / args.name if args.name else (args.out or args.target)
+    )
 
     try:
         publish(args.engine, out, agent=args.agent, force=args.force)

@@ -23,7 +23,7 @@ Game repos are disposable. This one is not, so it holds the memory.
 
 Two knowledge bases, both mounted in every published repo:
 
-- **`craft.db`** lives here and carries what every game should already know — engine traps, toolchain traps, design principles. Built from [`knowledge/`](knowledge/), which is 19 entries of reviewable markdown.
+- **`craft.db`** lives here and carries what every game should already know — engine traps, toolchain traps, design principles. Built from [`knowledge/`](knowledge/), which is 27 entries of reviewable markdown.
 - **`game.db`** lives in the game repo and accumulates that game's own findings.
 
 Writing back asks nothing of you. `/kg-harvest` runs as a step of delivery and proposes the handful of lessons that generalise; you approve or reject. A commit hook catches anything you happened to write into a commit body.
@@ -53,7 +53,7 @@ python scripts/bootstrap.py
 
 `kg/` is gitignored, so cloning it inside the checkout is fine; `../kg` and `~/.godogen/kg` are also searched, and `GODOGEN_KG_HOME` overrides all of them.
 
-`bootstrap.py` ends with a line like `Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized`. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
+`bootstrap.py` ends with a line like `Ready. 27 entries indexed, 27 vectorized, 13 principles prioritized`. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
 
 Re-run it after editing `knowledge/`.
 
@@ -78,14 +78,20 @@ Like the knowledge engine, it is found by path rather than vendored — its mode
 ## Making a game
 
 ```bash
-python publish.py --engine godot   --out ~/my-game
-python publish.py --engine babylon --out ~/my-game
-python publish.py --engine godot --agent codex --out ~/my-game
+python publish.py --engine godot --name my-game
+python publish.py --engine babylon --name my-game
+python publish.py --engine godot --agent codex --name my-game
 ```
+
+`--name` creates the repo under `GAMES_ROOT`, which defaults to `../games`
+beside this checkout. A game is its own repository with its own remote -- the
+same kind of thing as the knowledge engine and the audio studio -- so it sits
+beside the generator rather than inside it; nesting repos makes the inner ones
+invisible to version control. `--out <dir>` still works for a one-off.
 
 `--force` wipes the target first. Then open your agent in that directory and describe the game you want.
 
-The published repo carries the manifest (`CLAUDE.md`, or `AGENTS.md` for Codex), a one-page engine guide, three skills, and wiring to both knowledge bases. Everything else — project scaffold, capture tooling — the agent builds from the guide.
+The published repo carries the manifest (`CLAUDE.md`, or `AGENTS.md` for Codex), a one-page engine guide, five skills, and wiring to both knowledge bases. Everything else — project scaffold, capture tooling — the agent builds from the guide.
 
 Before writing code the agent runs `/game-design`: an interview that produces `DESIGN.md` — core verb, the decision the player keeps making, what the game explicitly will not do and why. "Make a tower defense" carries about three percent of the game you have in mind, and the rest is otherwise invented silently and lost at the first compaction.
 
@@ -130,11 +136,10 @@ Documents in Chinese have been verified against real runs; documents in English 
 
 ## Known limitations
 
-- `auto-recall` matches by splitting on whitespace, so it misses Chinese prompts that contain no spaces. This matters most on Codex, where it is the only always-available injection channel.
-- Codex has no post-compaction hook, so knowledge is not re-injected after a compaction there.
-- The post-compaction budget is ten entries; `scripts/seed_priority.py` decides which ten.
+- Codex has no post-compaction hook, so knowledge is not re-injected after a compaction there. `auto-recall` fires on every prompt and carries the load alone.
+- The post-compaction budget is twenty entries; `scripts/seed_priority.py` decides which twenty, ranking method above situational traps.
 - The Babylon guide and its capture path are unverified on Windows.
-- Nothing here has yet built a complete game. Every part is verified; the whole path is not.
+- One game has shipped through this: a tower defence, which is where most of the corpus's newest entries came from.
 
 ## Development
 

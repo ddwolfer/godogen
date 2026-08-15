@@ -211,3 +211,27 @@ def test_gitignore_covers_the_knowledge_cache(tmp_path: Path):
     ignored = (out / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ".kg/" in ignored
     assert ".mcp.json" in ignored
+
+
+def test_name_creates_the_game_under_the_games_root(tmp_path: Path, monkeypatch):
+    """Having a default at all is the point: without one each game lands
+    wherever was convenient that day."""
+    monkeypatch.setattr(publish.config, "games_root", lambda *a: tmp_path / "games")
+    assert publish.main(["--engine", "godot", "--name", "tower"]) == 0
+    assert (tmp_path / "games" / "tower" / "CLAUDE.md").is_file()
+
+
+def test_name_and_out_together_are_rejected(tmp_path: Path):
+    with pytest.raises(SystemExit):
+        publish.main(["--engine", "godot", "--name", "a", "--out", str(tmp_path)])
+
+
+def test_neither_name_nor_out_is_rejected():
+    with pytest.raises(SystemExit):
+        publish.main(["--engine", "godot"])
+
+
+def test_out_still_works_for_a_one_off_location(tmp_path: Path):
+    out = tmp_path / "somewhere"
+    assert publish.main(["--engine", "godot", "--out", str(out)]) == 0
+    assert (out / "CLAUDE.md").is_file()

@@ -127,3 +127,18 @@ def test_example_file_lists_every_valid_backend():
     for choices in config.BACKENDS.values():
         for choice in choices:
             assert choice in text, choice
+
+
+def test_games_root_defaults_beside_the_generator():
+    """A game is its own repo with its own remote -- the same kind of thing as
+    the knowledge engine, and kept beside godogen rather than inside it."""
+    assert config.games_root({}) == config.REPO_ROOT.parent / "games"
+
+
+def test_games_root_is_configurable():
+    assert config.games_root({"GAMES_ROOT": "E:/elsewhere"}) == Path("E:/elsewhere")
+
+
+def test_games_root_is_documented():
+    text = (config.REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    assert "GAMES_ROOT" in text

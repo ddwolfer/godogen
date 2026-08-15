@@ -79,6 +79,7 @@ def load(env_file: Path | None = None, environ: dict[str, str] | None = None) ->
     for key in list(BACKENDS) + [k for reqs in REQUIREMENTS.values() for k in reqs] + [
         "GODOGEN_KG_HOME",
         "ACE_STUDIO_HOME",
+        "GAMES_ROOT",
         "GODOT_PATH",
     ]:
         if environ.get(key):
@@ -122,6 +123,24 @@ def describe(config: dict[str, str] | None = None) -> str:
         f"audio = {_LABELS[backend('ASSET_AUDIO', config)]}",
     ]
     return " · ".join(parts)
+
+
+def games_root(config: dict[str, str] | None = None) -> Path:
+    """Where new game repos are created.
+
+    A published game is its own repository with its own remote -- the same
+    kind of thing as the knowledge engine and the audio studio, and kept
+    beside the generator rather than inside it. Nesting one repo in another
+    means the inner ones are physically present and invisible to version
+    control, and every boundary that blurred today cost something.
+
+    Having a default at all is the point: otherwise each game lands wherever
+    was convenient that day, which is how one ended up somewhere it had to be
+    hunted down and moved.
+    """
+    config = load() if config is None else config
+    configured = config.get("GAMES_ROOT")
+    return Path(configured) if configured else REPO_ROOT.parent / "games"
 
 
 def uses_cloud(config: dict[str, str] | None = None) -> bool:

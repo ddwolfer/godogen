@@ -23,7 +23,7 @@ Fork 自 [alex_erm/godogen](https://github.com/alex-erm/godogen),見[與上游�
 
 兩個知識庫,每個 publish 出去的 repo 都會掛上:
 
-- **`craft.db`** 住在這裡,裝「每個遊戲都該先知道」的東西 —— 引擎陷阱、工具鏈陷阱、設計原則。由 [`knowledge/`](knowledge/) 建出來,19 條可 review 的 markdown。
+- **`craft.db`** 住在這裡,裝「每個遊戲都該先知道」的東西 —— 引擎陷阱、工具鏈陷阱、設計原則。由 [`knowledge/`](knowledge/) 建出來,27 條可 review 的 markdown。
 - **`game.db`** 住在遊戲 repo,累積那個遊戲自己的發現。
 
 **寫回來不需要你做任何事。** `/kg-harvest` 是交付流程的一步,它挑出少數幾條跨專案成立的教訓提案給你,你決定收不收。另外有一個 commit hook 會順手撈你寫在 commit message 裡的東西。
@@ -80,7 +80,7 @@ ACE Studio 是掛成 **MCP server**,所以 agent 直接拿得到它的工具,包
 跑完最後一行會像這樣:
 
 ```
-Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized for post-compaction recall.
+Ready. 27 entries indexed, 27 vectorized, 13 principles prioritized for post-compaction recall.
 ```
 
 **如果它印的是錯誤,就相信那個錯誤。** 它包起來的兩個步驟都會「靜默地少做一點事」然後回報成功 —— 這正是它拒絕在無法驗證時宣稱成功的原因。第一次跑會下載約 560MB 的 embedding 模型。
@@ -92,14 +92,18 @@ Ready. 20 entries indexed, 20 vectorized, 7 principles prioritized for post-comp
 ## 做一個遊戲
 
 ```bash
-python publish.py --engine godot   --out ~/my-game
-python publish.py --engine babylon --out ~/my-game
-python publish.py --engine godot --agent codex --out ~/my-game
+python publish.py --engine godot --name my-game
+python publish.py --engine babylon --name my-game
+python publish.py --engine godot --agent codex --name my-game
 ```
+
+`--name` 會建在 `GAMES_ROOT` 底下,預設是這個 checkout 隔壁的 `../games`。
+
+**遊戲是獨立的 repo、有自己的遠端** —— 跟知識引擎、音訊引擎是同一類東西,所以放在產生器**旁邊**而不是裡面;把 repo 塞進 repo 會讓裡面那些在版控上消失。臨時要指定位置還是可以用 `--out <dir>`。
 
 `--force` 會先清空目標目錄。然後在那個目錄開你的 agent,描述你要的遊戲。
 
-publish 出去的 repo 只帶四樣:manifest(`CLAUDE.md`,Codex 是 `AGENTS.md`)、一頁的引擎指南、三個 skill、以及兩個知識庫的接線。其他一切 —— 專案骨架、截圖錄影工具 —— agent 自己照指南蓋。
+publish 出去的 repo 只帶四樣:manifest(`CLAUDE.md`,Codex 是 `AGENTS.md`)、一頁的引擎指南、五個 skill、以及兩個知識庫的接線。其他一切 —— 專案骨架、截圖錄影工具 —— agent 自己照指南蓋。
 
 **動手之前它會先跑 `/game-design`** —— 一段訪談,產出 `DESIGN.md`:核心動詞、玩家反覆在做的那個決策、明確不做什麼以及為什麼。
 
@@ -150,11 +154,10 @@ Codex 的 hooks 目前還是 experimental 而且要手動開啟:在 `~/.codex/co
 
 ## 已知限制
 
-- **`auto-recall` 對純中文無效。** 它依空白切詞,而中文沒有空格,整句會變成一個 phrase query。另外兩個注入 hook(開場、壓縮後)不受影響。**這條在 Codex 上影響最大** —— 那邊它是唯一全程可用的注入管道。
-- **Codex 沒有壓縮後注入。** 見上。
-- **壓縮後的注入額度是 10 條**,由 `scripts/seed_priority.py` 決定是哪 10 條(方法論優先於情境性陷阱)。
+- **Codex 沒有壓縮後注入。** 它只有開場與每則訊息兩個管道,`auto-recall` 要獨自扛下來。
+- **壓縮後的注入額度是 20 條**,由 `scripts/seed_priority.py` 決定是哪 20 條(方法論優先於情境性陷阱)。語料再長就會再度撞到,而那時的答案不是繼續加額度,是只注入「跟上次不一樣的」。
 - Babylon 的指南與截圖路徑未在 Windows 驗證。
-- 從來沒有用它真的做出一個完整的遊戲 —— 零件都驗過,整條路沒走過。
+- **已經用它做出過一款遊戲**(塔防),語料裡最新的幾條就是從那次收割來的。
 
 ## 開發
 
