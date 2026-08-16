@@ -119,3 +119,18 @@ def test_cross_links_resolve(path: Path):
     known = _slugs()
     for target in LINK.findall(path.read_text(encoding="utf-8")):
         assert target in known, f"{path.name} links to unknown entry [[{target}]]"
+
+
+def test_the_corpus_agrees_with_the_manifest_on_who_reads_the_screenshots():
+    """Both land in the agent's context -- the manifest as CLAUDE.md, this
+    entry through post-compact injection. When they disagree about the same
+    layer, the cheaper instruction wins, and the cheaper one is always
+    "look at it yourself"."""
+    ladder = (CORPUS / "patterns" / "five-layer-verification.md").read_text(encoding="utf-8")
+    rules, _, cases = ladder.partition("## 案例")
+    assert "沒有前後文" in rules, "the ladder no longer delegates layer 2"
+    assert "agent 自己讀截圖" not in rules, (
+        "the ladder still tells the builder to read its own screenshots; "
+        "the case section may keep saying so, because that is what happened"
+    )
+    assert "agent 自己讀截圖" in cases, "the case report should not be rewritten"

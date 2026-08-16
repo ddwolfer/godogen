@@ -108,7 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--kg", help="path to the Multi-knowledgeGraph checkout")
     parser.add_argument("--db", default=str(REPO_ROOT / "craft.db"))
     parser.add_argument("--knowledge", default=str(REPO_ROOT / "knowledge"))
-    parser.add_argument("--keep", action="store_true", help="add to the existing index")
+    parser.add_argument(
+        "--keep", action="store_true",
+        help="import without wiping first. The importer does not de-duplicate, "
+             "so re-running this over the same corpus doubles every entry. It "
+             "is for adding a second corpus, or for when the database is "
+             "locked and cannot be deleted.")
     args = parser.parse_args(argv)
 
     kg_home = Path(args.kg) if args.kg else kgwire.find_kg_home()

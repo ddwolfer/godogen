@@ -80,8 +80,10 @@ ACE Studio 是掛成 **MCP server**,所以 agent 直接拿得到它的工具,包
 跑完最後一行會像這樣:
 
 ```
-Ready. 27 entries indexed, 27 vectorized, 13 principles prioritized for post-compaction recall.
+Ready. 28 entries indexed, 28 vectorized, 13 principles prioritized for post-compaction recall.
 ```
+
+28 是 27 條語料加上 `knowledge/README.md` —— 匯入器把它也當成一個節點。它不會被壓縮後注入(優先權 0),但會出現在 auto-recall 的結果裡。
 
 **如果它印的是錯誤,就相信那個錯誤。** 它包起來的兩個步驟都會「靜默地少做一點事」然後回報成功 —— 這正是它拒絕在無法驗證時宣稱成功的原因。第一次跑會下載約 560MB 的 embedding 模型。
 
