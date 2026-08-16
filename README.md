@@ -139,7 +139,7 @@ Documents in Chinese have been verified against real runs; documents in English 
 - Codex has no post-compaction hook, so knowledge is not re-injected after a compaction there. `auto-recall` fires on every prompt and carries the load alone.
 - The post-compaction budget is twenty entries; `scripts/seed_priority.py` decides which twenty, ranking method above situational traps.
 - The Babylon guide and its capture path are unverified on Windows.
-- One game has shipped through this: Elemental Deck, a deck-building tower defence, which is where most of the corpus's newest entries came from. A second genre would tell you which of those entries are about games and which are about that one.
+- Two games have shipped through this, and both are tower defences: Elemental Deck, where the elements are a deck you draw from, and Bloodline, built on race specialisation and relic drafting. Eight of the corpus's entries come from them. A second *genre* is the thing still missing -- until one exists, there is no way to tell which of those entries are about games and which are about tower defence.
 
 ## Development
 
