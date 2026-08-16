@@ -123,9 +123,10 @@ def test_all_three_injecting_hooks_are_wired(tmp_path: Path):
 
 
 def test_search_enforcer_is_not_wired(tmp_path: Path):
-    """Its read-tool prefixes are hardcoded to mcp__knowledge-graph__, which
-    never matches the kg-craft / kg-game server names — it would block every
-    write until the circuit breaker fires. See Task 18."""
+    """A PreToolUse hook runs on every tool call. This one costs a node
+    process (~60ms) to do nothing unless the user opted in with a flag file
+    that is absent by default, so the cost is paid by everyone and the benefit
+    by almost no one."""
     kg = _fake_kg(tmp_path)
     settings = kgwire.hook_settings(kg, tmp_path / "craft.db", tmp_path / "game.db")
     assert "PreToolUse" not in settings["hooks"]

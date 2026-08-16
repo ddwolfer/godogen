@@ -21,11 +21,16 @@ INJECTING_HOOKS = {
     "auto-recall.js": ("UserPromptSubmit", None),
 }
 
-# search-enforcer.js is deliberately NOT wired. It decides whether memory was
-# searched by matching hardcoded `mcp__knowledge-graph__*` tool-name prefixes,
-# which never match the kg-craft / kg-game server names below -- so it would
-# deny every write until its 3-strike circuit breaker fires, on every session.
-# Wiring it needs a fix in the kg repo first.
+# search-enforcer.js is deliberately NOT wired. It is a PreToolUse hook, so
+# wiring it spends a node process on every single tool call (~60ms measured)
+# to do nothing at all unless the user has created
+# ~/.claude/hooks/.kg-enforcer-active, which is off by default.
+#
+# It used to be unwirable for a worse reason: it matched hardcoded
+# `mcp__knowledge-graph__*` tool-name prefixes, which never match the
+# kg-craft / kg-game names below, so it denied every write until its 3-strike
+# breaker fired. Fixed upstream in Multi-knowledgeGraph by
+# fix/search-enforcer-tool-names -- what is left is the cost, not a defect.
 
 HOOK_TIMEOUT_S = 10
 
