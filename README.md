@@ -53,7 +53,7 @@ python scripts/bootstrap.py
 
 `kg/` is gitignored, so cloning it inside the checkout is fine; `../kg` and `~/.godogen/kg` are also searched, and `GODOGEN_KG_HOME` overrides all of them.
 
-`bootstrap.py` ends with a line like `Ready. 28 entries indexed, 28 vectorized, 13 principles prioritized`. That is 27 entries plus `knowledge/README.md`, which the importer takes as a node like any other. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
+`bootstrap.py` ends with a line like `Ready. 27 entries indexed, 27 vectorized, 13 principles prioritized`. The first number is one node per entry in `knowledge/`; an older kg also counted `knowledge/README.md`, so 28 there means the same thing. If it prints an error instead, believe the error: both underlying steps fail by quietly doing less, which is why this refuses to report success it cannot verify.
 
 Re-run it after editing `knowledge/`.
 
