@@ -11,8 +11,9 @@ cannot verify. Both steps it wraps fail by quietly doing less:
   import-skills.js  gates embedding on isReady(), which only turns true after
                     embed() has been called -- a fresh process writes zero
                     vectors and prints success
-  post-compact      injects ORDER BY access_count DESC LIMIT 10, which on a
-                    fresh import is every count at 0 and an arbitrary cut
+  post-compact      injects ORDER BY access_count DESC with a fixed LIMIT,
+                    which on a fresh import is every count at 0 and an
+                    arbitrary cut
 
     python scripts/bootstrap.py
 
@@ -131,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(f"Ready. {stats['nodes']} entries indexed, {stats['vectors']} vectorized, "
           f"{stats['principles']} principles prioritized for post-compaction recall.")
-    print("Publish a game repo with:  python publish.py --engine godot --out <dir>")
+    print("Publish a game repo with:  python publish.py --engine godot --name <game>")
     return 0
 
 
